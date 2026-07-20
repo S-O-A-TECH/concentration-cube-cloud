@@ -157,7 +157,7 @@ def test_detect_no_key(monkeypatch):
     _no_key(monkeypatch)
     d = QwenApiAdapter().detect()
     assert not d.installed
-    assert "키" in d.error
+    assert "key" in d.error
 
 
 def test_detect_with_key(with_key):
@@ -176,7 +176,7 @@ def test_check_auth_401(with_key, monkeypatch):
     monkeypatch.setattr(qwen, "_post_once",
                         lambda url, headers, payload, timeout: _FakeResp(401, text="unauthorized"))
     a = QwenApiAdapter().check_auth()
-    assert not a.ok and "인증" in a.detail
+    assert not a.ok and "Authentication" in a.detail
 
 
 def test_check_auth_no_key(monkeypatch):
@@ -234,7 +234,7 @@ def test_propose_no_valid_changes_fails(ws, with_key, monkeypatch):
     monkeypatch.setattr(qwen, "_post_once",
                         lambda url, headers, payload, timeout: _chat_ok(bad))
     out = QwenApiAdapter().propose(ws, 60)
-    assert not out.ok and "변경" in out.error
+    assert not out.ok and "changes" in out.error
     assert not out_path.exists()
 
 

@@ -1,45 +1,45 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>세대 이력 — Live Evolution</title>
+<title>Generations — Live Evolution</title>
 <link rel="stylesheet" href="/static/css/app.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
 </head>
 <body>
 <main>
-  <h1>세대 이력</h1>
-  <p class="sub">계보의 정본은 운영 서버 param_sets — 이 서버의 에이전트 원문(agent_runs)과 조인해 보여줍니다. 인쇄하면 임상 문서가 됩니다.</p>
+  <h1>Generations</h1>
+  <p class="sub">The canonical lineage is the operations server's param_sets — joined with this server's agent transcripts (agent_runs). Print it and it becomes a clinical document.</p>
   <details class="help">
-    <summary>이 화면 사용법 — 무엇을 시도했고 왜 그렇게 됐는지의 전 기록</summary>
+    <summary>How to use this screen — the full record of what was tried and why it turned out that way</summary>
     <div class="body">
-      <h4>계보 트리 점 색깔</h4>
+      <h4>Lineage tree dot colors</h4>
       <ul>
-        <li><span style="color:var(--good)">●</span> adopted(채택됨) — 링이 있으면 <b>현재 활성</b> 기준</li>
-        <li><span style="color:#5B4E8A">●</span> candidate/passed — 등록·통과했지만 아직 채택 전</li>
-        <li><span style="color:var(--bad)">●</span> rejected/failed — 기각·실패 (이것도 소중한 기록)</li>
-        <li><span style="color:var(--amber)">●</span> rolled_back — 채택 후 되돌림</li>
+        <li><span style="color:var(--good)">●</span> adopted — a ring means the <b>currently active</b> criteria</li>
+        <li><span style="color:#5B4E8A">●</span> candidate/passed — registered/passed but not yet adopted</li>
+        <li><span style="color:var(--bad)">●</span> rejected/failed — rejected/failed (also a valuable record)</li>
+        <li><span style="color:var(--amber)">●</span> rolled_back — reverted after adoption</li>
       </ul>
-      <h4>할 수 있는 일</h4>
+      <h4>What you can do</h4>
       <ul>
-        <li><b class="k">[보기]</b> — 그 세대의 변경 diff, 성적, 그리고 <b>에이전트가 실제로 받은
-          임무문과 응답 원문 전체</b>(재현성·감사용).</li>
-        <li><b class="k">[🖨 인쇄 뷰]</b> — 그대로 임상 문서/보고서가 되는 출력.</li>
-        <li><b class="k">[롤백]</b> — 활성(adopted) 세대에서만. 2단 확인 후 직전 세대가 다시 활성이 되고,
-          전 세션이 그 기준으로 재채점됩니다.</li>
+        <li><b class="k">[View]</b> — that generation's change diff, scores, and <b>the full mission the agent
+          actually received and its raw response</b> (for reproducibility and audit).</li>
+        <li><b class="k">[🖨 Print view]</b> — output that becomes a clinical document/report as-is.</li>
+        <li><b class="k">[Rollback]</b> — only on the active (adopted) generation. After a 2-step confirm the previous
+          generation becomes active again, and all sessions are re-scored with that criteria.</li>
       </ul>
-      "local 기록 없음"으로 뜨는 후보가 있다면 이 콘솔 밖(예: 수동 등록)에서 만들어진 것입니다.
+      If a candidate shows "no local record", it was created outside this console (e.g. manual registration).
     </div>
   </details>
   <div class="grid2">
     <div class="card" style="margin:0">
-      <h2 style="margin-top:0">계보</h2>
+      <h2 style="margin-top:0">Lineage</h2>
       <div id="tree"></div>
       <p class="sub" id="ops-err"></p>
     </div>
     <div class="card" style="margin:0" id="detail">
-      <p class="sub">왼쪽에서 세대를 선택하세요.</p>
+      <p class="sub">Select a generation on the left.</p>
     </div>
   </div>
   <div id="doc-area"></div>
@@ -64,16 +64,16 @@ async function load() {
       <div class="row">
         <b>${esc(p.version)}</b>
         <span class="badge ${STATUS_BADGE[p.status] || 'info'}">${esc(p.status)}</span>
-        ${p.active ? '<span class="badge ok">활성</span>' : ''}
+        ${p.active ? '<span class="badge ok">Active</span>' : ''}
         <span class="sub">${fmtDT(p.created_at)}</span>
-        <button class="small ghost" onclick="showDetail('${esc(p.id)}')">보기</button>
+        <button class="small ghost" onclick="showDetail('${esc(p.id)}')">View</button>
         ${p.active && p.status === 'adopted' && p.parent_id
-          ? `<button class="small danger" onclick="rollback('${esc(p.id)}','${esc(p.version)}')">롤백</button>` : ''}
+          ? `<button class="small danger" onclick="rollback('${esc(p.id)}','${esc(p.version)}')">Rollback</button>` : ''}
       </div>
       ${(byParent[p.id] || []).map(renderNode).join('')}
     </div>`;
   document.getElementById('tree').innerHTML =
-    (byParent[''] || []).map(renderNode).join('') || '<p class="sub">세대가 없습니다.</p>';
+    (byParent[''] || []).map(renderNode).join('') || '<p class="sub">No generations.</p>';
 }
 
 async function showDetail(pid) {
@@ -86,26 +86,26 @@ async function showDetail(pid) {
   }
   let html = `<h2 style="margin-top:0">${esc(ps.version)}</h2>
     <div class="kv">
-      <b>상태</b><span><span class="badge ${STATUS_BADGE[ps.status] || 'info'}">${esc(ps.status)}</span>${ps.active ? ' (활성)' : ''}</span>
-      <b>기원</b><span>${esc(ps.origin)}${ps.agent_name ? ' · ' + esc(ps.agent_name) : ''}</span>
-      <b>부모</b><span>${esc(ps.parent_id || '—')}</span>
-      <b>근거</b><span>${esc(ps.rationale || '—')}</span>
+      <b>Status</b><span><span class="badge ${STATUS_BADGE[ps.status] || 'info'}">${esc(ps.status)}</span>${ps.active ? ' (active)' : ''}</span>
+      <b>Origin</b><span>${esc(ps.origin)}${ps.agent_name ? ' · ' + esc(ps.agent_name) : ''}</span>
+      <b>Parent</b><span>${esc(ps.parent_id || '—')}</span>
+      <b>Rationale</b><span>${esc(ps.rationale || '—')}</span>
     </div>
     <div class="row" style="margin-top:12px">
-      <a class="btn ghost small" href="/report?id=${encodeURIComponent(ps.id)}">성적표</a>
-      <button class="small ghost no-print" onclick="printDoc('${esc(pid)}')">🖨 임상 문서 인쇄 뷰</button>
+      <a class="btn ghost small" href="/report?id=${encodeURIComponent(ps.id)}">Gate report</a>
+      <button class="small ghost no-print" onclick="printDoc('${esc(pid)}')">🖨 Clinical document print view</button>
     </div>`;
   if (local) {
     const row = local.proposal_row;
     const prop = row.proposal_json ? JSON.parse(row.proposal_json) : null;
     if (prop) {
-      html += `<h2>변경 diff</h2><div class="scroll-x"><table class="tbl">
-        <tr><th>키</th><th>from</th><th>to</th><th>근거</th></tr>` +
+      html += `<h2>Change diff</h2><div class="scroll-x"><table class="tbl">
+        <tr><th>Key</th><th>from</th><th>to</th><th>Reason</th></tr>` +
         prop.changes.map((c) => `<tr><td class="mono">${esc(c.key)}</td>
           <td class="num">${esc(c.from)}</td><td class="num"><b>${esc(c.to)}</b></td>
           <td class="sub">${esc(c.reason)}</td></tr>`).join('') + '</table></div>';
     }
-    html += `<h2>에이전트 실행 (${local.agent_runs.length}회)</h2><div id="runs-raw"></div>`;
+    html += `<h2>Agent runs (${local.agent_runs.length})</h2><div id="runs-raw"></div>`;
   }
   el.innerHTML = html;
   if (local) {
@@ -114,12 +114,12 @@ async function showDetail(pid) {
       const d = document.createElement('details');
       const s = document.createElement('summary');
       s.className = 'sub';
-      s.textContent = `시도 ${r.attempt} · ${r.agent} · ${Math.round(r.duration_sec || 0)}초 · ` +
-        (r.cost_usd != null ? `$${r.cost_usd} · ` : '') + (r.ok ? '성공' : `실패(${r.error || ''})`);
+      s.textContent = `Attempt ${r.attempt} · ${r.agent} · ${Math.round(r.duration_sec || 0)}s · ` +
+        (r.cost_usd != null ? `$${r.cost_usd} · ` : '') + (r.ok ? 'success' : `failed(${r.error || ''})`);
       d.appendChild(s);
-      const h4a = document.createElement('p'); h4a.className = 'sub'; h4a.textContent = 'MISSION.md 전문:';
+      const h4a = document.createElement('p'); h4a.className = 'sub'; h4a.textContent = 'Full MISSION.md:';
       const preM = document.createElement('pre'); preM.className = 'mono'; preM.textContent = r.mission || '';
-      const h4b = document.createElement('p'); h4b.className = 'sub'; h4b.textContent = '응답 원문(stdout):';
+      const h4b = document.createElement('p'); h4b.className = 'sub'; h4b.textContent = 'Raw response (stdout):';
       const preO = document.createElement('pre'); preO.className = 'mono'; preO.textContent = r.stdout || '';
       d.append(h4a, preM, h4b, preO);
       rawEl.appendChild(d);
@@ -134,14 +134,14 @@ async function printDoc(pid) {
 }
 
 async function rollback(pid, version) {
-  const ok1 = await confirmModal({ title: '롤백 1/2', danger: true, confirmText: '계속',
-    body: `<b>${esc(version)}</b> 채택을 되돌리고 직전 세대를 다시 활성화합니다.` });
+  const ok1 = await confirmModal({ title: 'Rollback 1/2', danger: true, confirmText: 'Continue',
+    body: `Reverts the adoption of <b>${esc(version)}</b> and re-activates the previous generation.` });
   if (!ok1) return;
-  const reason = await promptModal({ title: '롤백 2/2 — 사유 (audit 기록)', danger: true, confirmText: '롤백 실행' });
+  const reason = await promptModal({ title: 'Rollback 2/2 — reason (audit record)', danger: true, confirmText: 'Run rollback' });
   if (reason == null) return;
   try {
     const r = await post(`/api/param_sets/${encodeURIComponent(pid)}/rollback`, { reason });
-    toast(`롤백 완료 — 활성: ${r.active.version}`);
+    toast(`Rollback done — active: ${r.active.version}`);
     await load();
   } catch (e) { showErr(e); }
 }

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>로그인 — Live Evolution</title>
+<title>Login — Live Evolution</title>
 <link rel="stylesheet" href="/static/css/app.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
 </head>
@@ -12,17 +12,17 @@
   <div class="login-wrap">
     <div class="card" style="text-align:center">
       <h1 style="color:var(--live)">🧬 Live Evolution</h1>
-      <p class="sub">concentration-cube 임상 검증 콘솔 (127.0.0.1 전용)</p>
+      <p class="sub">concentration-cube clinical validation console (127.0.0.1 only)</p>
       <form id="f" style="margin-top:16px;text-align:left">
-        <label class="fld">아이디</label>
+        <label class="fld">Username</label>
         <input type="text" id="id" autocomplete="username" autofocus>
-        <label class="fld">비밀번호</label>
+        <label class="fld">Password</label>
         <input type="password" id="pw" autocomplete="current-password">
         <div id="msg" class="sub" style="color:var(--bad);min-height:22px;margin-top:8px"></div>
-        <button style="width:100%">로그인</button>
+        <button style="width:100%">Log in</button>
       </form>
     </div>
-    <p class="sub" style="text-align:center">운영 서버 계정과는 별개입니다 (.env ADMIN_ID/PW)</p>
+    <p class="sub" style="text-align:center">Separate from the operations server account (.env ADMIN_ID/PW)</p>
   </div>
 </main>
 <script src="/static/js/api.js"></script>

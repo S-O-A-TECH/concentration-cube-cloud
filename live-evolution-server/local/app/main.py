@@ -196,7 +196,7 @@ def api_agents(probe: bool = False, user: str = Depends(require_api_auth)):
 @app.post("/api/agents/{name}/check")
 def api_agent_check(name: str, user: str = Depends(require_api_auth)):
     if name not in ADAPTERS:
-        raise HTTPException(404, "알 수 없는 에이전트")
+        raise HTTPException(404, "Unknown agent")
     return _agent_status(name, force_auth=True)
 
 
@@ -204,18 +204,18 @@ def api_agent_check(name: str, user: str = Depends(require_api_auth)):
 def api_agent_terminal(name: str, user: str = Depends(require_api_auth)):
     """[터미널 열기] — CLI 가 OAuth 브라우저를 띄운다 (SPEC-01 §2 ③)."""
     if name not in ADAPTERS:
-        raise HTTPException(404, "알 수 없는 에이전트")
+        raise HTTPException(404, "Unknown agent")
     try:
         subprocess.Popen(get_adapter(name).terminal_command())
     except OSError as e:
-        raise HTTPException(500, f"터미널 열기 실패: {e}")
-    return {"ok": True, "hint": "터미널에서 로그인을 마친 뒤 [다시 확인]을 눌러 주세요."}
+        raise HTTPException(500, f"Failed to open terminal: {e}")
+    return {"ok": True, "hint": "After finishing login in the terminal, press [Check again]."}
 
 
 @app.post("/api/agents/{name}/select")
 def api_agent_select(name: str, user: str = Depends(require_api_auth)):
     if name not in ADAPTERS:
-        raise HTTPException(404, "알 수 없는 에이전트")
+        raise HTTPException(404, "Unknown agent")
     db.set_setting("agent_default", name)
     return {"ok": True, "default": name}
 
@@ -280,7 +280,7 @@ def api_console_save(user: str = Depends(require_api_auth)):
 
 @app.post("/api/console/discard")
 def api_console_discard(req: ReasonReq, user: str = Depends(require_api_auth)):
-    return _console_guard(get_console().discard, req.reason or "프로토콜 실패")
+    return _console_guard(get_console().discard, req.reason or "Protocol failure")
 
 
 @app.get("/api/console/presets")
@@ -367,7 +367,7 @@ def api_param_set_report(pid: str, user: str = Depends(require_api_auth)):
 @app.post("/api/param_sets/{pid}/promote")
 def api_promote(pid: str, req: PromoteReq, user: str = Depends(require_api_auth)):
     if not req.confirm:
-        raise HTTPException(400, "confirm 이 필요합니다 — 확인 모달을 거쳐 주세요.")
+        raise HTTPException(400, "confirm is required — please go through the confirmation modal.")
     res = _ops_guard(get_ops().promote, pid, True)   # 게이트 미통과면 운영 서버가 409 (이중 방어)
     get_loop().mark_adopted(pid)
     try:
@@ -384,7 +384,7 @@ def api_reject(pid: str, req: ReasonReq, user: str = Depends(require_api_auth)):
     res = _ops_guard(get_ops().reject, pid, req.reason)
     loop = get_loop()
     if loop.state == "REJECTED":
-        loop.dismiss(req.reason or "기각 확정")
+        loop.dismiss(req.reason or "Rejection confirmed")
     return res
 
 
@@ -423,7 +423,7 @@ def api_generations(user: str = Depends(require_api_auth)):
 def api_generation_detail(gen_id: str, user: str = Depends(require_api_auth)):
     p = db.get_proposal(gen_id)
     if not p:
-        raise HTTPException(404, "해당 세대 기록이 없습니다")
+        raise HTTPException(404, "No record for this generation")
     runs = db.agent_runs(gen_id=gen_id, purpose="propose", limit=10)
     return {"proposal_row": p, "agent_runs": runs}
 
@@ -478,14 +478,14 @@ def api_archive_detail(sid: str, user: str = Depends(require_api_auth)):
 @app.post("/api/archive/{sid}/exclude")
 def api_archive_exclude(sid: str, req: ReasonReq, user: str = Depends(require_api_auth)):
     if not req.reason.strip():
-        raise HTTPException(400, "사유는 필수입니다 (audit 기록)")
+        raise HTTPException(400, "Reason is required (audit record)")
     return _ops_guard(get_ops().exclude, sid, req.reason)
 
 
 @app.post("/api/archive/{sid}/restore")
 def api_archive_restore(sid: str, req: ReasonReq, user: str = Depends(require_api_auth)):
     if not req.reason.strip():
-        raise HTTPException(400, "사유는 필수입니다 (audit 기록)")
+        raise HTTPException(400, "Reason is required (audit record)")
     return _ops_guard(get_ops().restore, sid, req.reason)
 
 
@@ -528,14 +528,14 @@ async def api_settings_post(request: Request, user: str = Depends(require_api_au
     body = await request.json()
     unknown = set(body) - _SETTINGS_KEYS
     if unknown:
-        raise HTTPException(400, f"알 수 없는 설정 키: {sorted(unknown)}")
+        raise HTTPException(400, f"Unknown setting key: {sorted(unknown)}")
     for k, v in body.items():
         if k in _NUMERIC_SETTINGS:
             lo, hi = _NUMERIC_SETTINGS[k]
             if not isinstance(v, (int, float)) or isinstance(v, bool) or not lo <= v <= hi:
-                raise HTTPException(400, f"{k}: {lo}~{hi} 범위의 숫자여야 합니다")
+                raise HTTPException(400, f"{k}: must be a number in range {lo}–{hi}")
         if k in _BOOL_SETTINGS and not isinstance(v, bool):
-            raise HTTPException(400, f"{k}: true/false 여야 합니다")
+            raise HTTPException(400, f"{k}: must be true/false")
     for k, v in body.items():
         db.set_setting(k, v)
     return {"ok": True, "saved": sorted(body)}

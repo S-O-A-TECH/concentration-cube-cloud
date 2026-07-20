@@ -72,7 +72,7 @@ def test_full_generation_lifecycle(loop):
 
 def test_lock_rejects_second_run(loop):
     loop.run()
-    with pytest.raises(RuntimeError, match="진행 중"):
+    with pytest.raises(RuntimeError, match="in progress"):
         loop.run()
     _wait(loop, ("REVIEW_DIFF", "FAILED"))
     loop.dismiss("테스트 정리")
@@ -113,7 +113,7 @@ def test_out_of_targets_fails(env, monkeypatch):
     loop.run()
     _wait(loop, ("FAILED",), timeout=120)
     v = loop.status()["validation"]
-    assert v["stage"] == 3 and any("표적" in e for e in v["errors"])
+    assert v["stage"] == 3 and any("target" in e for e in v["errors"])
 
 
 def test_timeout_agent_fails_generation(env, monkeypatch):
@@ -138,8 +138,8 @@ def test_labels_guard_blocks_run(mock_server, tmp_path, monkeypatch):
     machine_mod.reset_loop()
     loop = get_loop()
     ok, reason = loop.can_run()
-    assert not ok and "라벨 세션이 부족" in reason
-    with pytest.raises(RuntimeError, match="라벨"):
+    assert not ok and "Not enough labeled sessions" in reason
+    with pytest.raises(RuntimeError, match="labeled"):
         loop.run()
     db_mod.close()
     config.reset_config()

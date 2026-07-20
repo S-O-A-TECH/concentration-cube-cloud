@@ -34,7 +34,7 @@ from app.loop.sim import classify_core as core  # noqa: E402
 
 MOCK_VERSION = "mock-ops-0.1"
 ENGINE_VERSION = "mock-S3"
-GATE_RULE = ("holdout 모든 상태 sens·spec 이 baseline 대비 -2%p 이내 저하 & 표적 개선 "
+GATE_RULE = ("All holdout states' sensitivity/specificity drop within -2%p vs baseline & target improves "
              "(mock — 실서버 S5 의 게이트 정의가 정본)")
 MAX_DROP = 0.02
 MISTAKES_CAP = 300
@@ -62,7 +62,7 @@ class MockState:
             }
             self.d["param_sets"].append({
                 "id": "ps1", "version": "v1.0", "status": "adopted", "active": True,
-                "origin": "seed", "agent_name": None, "rationale": "시드 파라미터 (웹캠 프로토 default.json)",
+                "origin": "seed", "agent_name": None, "rationale": "Seed parameters (webcam proto default.json)",
                 "parent_id": None, "json_params": seed_params, "created_at": _now(),
             })
             self.d["seq"] = 1
@@ -505,7 +505,7 @@ def create_app(sessions_dirs: list[Path], state_path: Path,
                     b, a = m[metric]["before"], m[metric]["after"]
                     if b is not None and a is not None and a < b - MAX_DROP:
                         passed = False
-                        notes.append(f"{st}.{metric} 저하 {round((b - a) * 100, 1)}%p (> 2%p)")
+                        notes.append(f"{st}.{metric} drop {round((b - a) * 100, 1)}%p (> 2%p)")
             check_states = targets or list(core.LABEL_STATES)
             improved = any(
                 hold[st][metric]["before"] is not None and hold[st][metric]["after"] is not None
@@ -513,10 +513,10 @@ def create_app(sessions_dirs: list[Path], state_path: Path,
                 for st in check_states for metric in ("sens", "spec"))
             if not improved:
                 passed = False
-                notes.append(f"표적 상태({'/'.join(check_states)}) 개선 없음")
+                notes.append(f"Target states ({'/'.join(check_states)}) show no improvement")
             report["gate"] = {"rule": GATE_RULE, "passed": passed,
                               "targets": check_states,
-                              "notes": "; ".join(notes) if notes else "통과"}
+                              "notes": "; ".join(notes) if notes else "Passed"}
             with state._lock:
                 ps["status"] = "passed" if passed else "rejected"
                 state.d["reports"][pid] = report
@@ -545,7 +545,7 @@ def create_app(sessions_dirs: list[Path], state_path: Path,
             if not ps:
                 raise HTTPException(404, "no such param_set")
             if not req.confirm:
-                raise HTTPException(400, "confirm:true required (사람 버튼)")
+                raise HTTPException(400, "confirm:true required (human button)")
             if ps["status"] != "passed":
                 # 이중 방어 — 게이트 미통과 채택 시도는 서버가 409 (E5 DoD)
                 raise HTTPException(409, f"gate not passed (status={ps['status']})")
@@ -584,7 +584,7 @@ def create_app(sessions_dirs: list[Path], state_path: Path,
             if not ps:
                 raise HTTPException(404, "no such param_set")
             if ps["status"] in ("adopted",) and ps.get("active"):
-                raise HTTPException(409, "active param_set 은 reject 불가 — rollback 을 쓰세요")
+                raise HTTPException(409, "cannot reject an active param_set — use rollback")
             ps["status"] = "rejected"
             state.audit("reject", pid, req.reason)
             state.save()
@@ -597,10 +597,10 @@ def create_app(sessions_dirs: list[Path], state_path: Path,
             if not ps:
                 raise HTTPException(404, "no such param_set")
             if not ps.get("active"):
-                raise HTTPException(409, "active 세대만 롤백할 수 있습니다")
+                raise HTTPException(409, "only the active generation can be rolled back")
             parent = state.ps_by_id(ps.get("parent_id") or "")
             if not parent:
-                raise HTTPException(409, "롤백할 이전 세대가 없습니다")
+                raise HTTPException(409, "no previous generation to roll back to")
             ps["active"] = False
             ps["status"] = "rolled_back"
             parent["active"] = True

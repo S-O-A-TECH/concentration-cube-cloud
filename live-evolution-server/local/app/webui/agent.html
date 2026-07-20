@@ -1,42 +1,42 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>에이전트 연결 — Live Evolution</title>
+<title>Connect agent — Live Evolution</title>
 <link rel="stylesheet" href="/static/css/app.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
 </head>
 <body>
 <main>
-  <h1>AI 에이전트 연결</h1>
-  <p class="sub">선택 → 감지 → 인증 확인 → (미인증 시) 터미널 로그인 → [다시 확인] — SPEC-01 마법사</p>
+  <h1>Connect AI agent</h1>
+  <p class="sub">Select → detect → auth check → (if unauthenticated) terminal login → [Check again] — SPEC-01 wizard</p>
   <details class="help">
-    <summary>이 화면 사용법 — 에이전트는 왜, 어떻게 연결하나</summary>
+    <summary>How to use this screen — why and how to connect an agent</summary>
     <div class="body">
-      AI 에이전트(Claude Code / Codex)는 <b class="k">오답 증거를 읽고 파라미터 개선안을 만들어 주는 도구</b>입니다.
-      이 콘솔은 여러분 PC 에 이미 로그인된 CLI(구독 계정)를 그대로 빌려 씁니다 — 토큰을 따로 저장하지 않습니다.
-      <h4>절차 (보통 최초 1회)</h4>
+      An AI agent (Claude Code / Codex) is <b class="k">a tool that reads mistake evidence and produces parameter improvements</b>.
+      This console simply borrows the CLI (subscription account) already logged in on your PC — it does not store any token separately.
+      <h4>Procedure (usually once at first)</h4>
       <ul>
-        <li><b class="k">[감지 + 인증 확인]</b> — 설치 여부와 로그인 상태를 실제 미니 호출로 확인합니다.
-          <span class="warn">첫 확인은 40초~2분 걸릴 수 있어요</span> (CLI 콜드 스타트) — 기다려 주세요.</li>
-        <li>"로그인이 필요해요"가 뜨면 → <b class="k">[터미널 열기]</b> — 터미널에서 로그인(브라우저 창이 뜸)을
-          마친 뒤 <b class="k">[다시 확인]</b>.</li>
-        <li>초록 배지가 되면 <b class="k">[기본으로 지정]</b> — 진화 실행 때 이 에이전트가 쓰입니다.</li>
+        <li><b class="k">[Detect + auth check]</b> — checks installation and login status with a real mini call.
+          <span class="warn">The first check can take 40s–2min</span> (CLI cold start) — please wait.</li>
+        <li>If "Login required" appears → <b class="k">[Open terminal]</b> — finish logging in (a browser window opens)
+          in the terminal, then <b class="k">[Check again]</b>.</li>
+        <li>Once the badge turns green, <b class="k">[Set as default]</b> — this agent is used when running evolution.</li>
       </ul>
-      <h4>알아둘 것</h4>
+      <h4>Good to know</h4>
       <ul>
-        <li>확인 결과는 30분 캐시되고, 진화 실행 직전에는 자동으로 다시 확인합니다.</li>
-        <li>둘 다 연결해 두면 진화 실행 화면에서 골라 쓸 수 있습니다.</li>
-        <li>타임아웃·일일 실행 상한은 <a href="/settings">설정</a>에서.</li>
+        <li>The check result is cached for 30 minutes, and it re-checks automatically right before running evolution.</li>
+        <li>If you connect both, you can pick which to use on the Run evolution screen.</li>
+        <li>Timeout and daily run limit are in <a href="/settings">Settings</a>.</li>
       </ul>
     </div>
   </details>
   <div class="grid2" id="cards" style="margin-top:14px"></div>
   <div class="card">
-    <h2 style="margin-top:0">실행 설정</h2>
-    <p class="sub">타임아웃·일일 상한은 <a href="/settings">설정</a>에서 변경합니다.
-      인증 확인 결과는 30분 캐시되고, 진화 실행 직전에는 항상 재확인합니다.</p>
+    <h2 style="margin-top:0">Run settings</h2>
+    <p class="sub">Change timeout and daily limit in <a href="/settings">Settings</a>.
+      The auth check result is cached for 30 minutes and always re-checked right before running evolution.</p>
   </div>
 </main>
 <script src="/static/js/api.js"></script>
@@ -46,27 +46,27 @@ let cur = null;
 
 function agentCard(a, isDefault) {
   const stat = a.installed === null
-    ? '<span class="badge warn">아직 확인 안 함</span>'
-    : !a.installed ? '<span class="badge err">설치되어 있지 않아요</span>'
-    : a.auth_ok ? `<span class="badge ok">연결됨 · v${esc(a.version)}</span>`
-    : '<span class="badge warn">로그인이 필요해요</span>';
+    ? '<span class="badge warn">Not checked yet</span>'
+    : !a.installed ? '<span class="badge err">Not installed</span>'
+    : a.auth_ok ? `<span class="badge ok">Connected · v${esc(a.version)}</span>`
+    : '<span class="badge warn">Login required</span>';
   const detail = a.installed === null ? ''
     : !a.installed ? `<p class="sub">${esc(a.detect_error)}<br>${esc(a.install_hint)}</p>`
-    : a.auth_ok ? `<p class="sub">최근 확인: ${fmtDT(a.checked_at)}</p>`
+    : a.auth_ok ? `<p class="sub">Last checked: ${fmtDT(a.checked_at)}</p>`
     : `<p class="sub">${esc(a.auth_detail)}</p>
-       <p class="sub mono">확인 명령: ${esc(a.auth_command)}</p>`;
+       <p class="sub mono">Check command: ${esc(a.auth_command)}</p>`;
   return `<div class="card" style="margin:0">
     <div class="row" style="justify-content:space-between">
       <b>${esc(a.display)}</b>
-      ${isDefault ? '<span class="badge info">기본 에이전트</span>' : ''}
+      ${isDefault ? '<span class="badge info">Default agent</span>' : ''}
     </div>
     <div style="margin:10px 0">${stat}</div>
     ${detail}
     <div class="row" style="margin-top:12px">
-      <button class="small" onclick="check('${a.name}')">감지 + 인증 확인</button>
-      ${a.installed && !a.auth_ok ? `<button class="small ghost" onclick="openTerminal('${a.name}')">터미널 열기</button>
-        <button class="small ghost" onclick="check('${a.name}')">다시 확인</button>` : ''}
-      ${a.auth_ok && !isDefault ? `<button class="small ghost" onclick="select('${a.name}')">기본으로 지정</button>` : ''}
+      <button class="small" onclick="check('${a.name}')">Detect + auth check</button>
+      ${a.installed && !a.auth_ok ? `<button class="small ghost" onclick="openTerminal('${a.name}')">Open terminal</button>
+        <button class="small ghost" onclick="check('${a.name}')">Check again</button>` : ''}
+      ${a.auth_ok && !isDefault ? `<button class="small ghost" onclick="select('${a.name}')">Set as default</button>` : ''}
     </div>
   </div>`;
 }
@@ -80,12 +80,12 @@ async function load(probe) {
   catch (e) { showErr(e); }
 }
 async function check(name) {
-  toast(`${name} 확인 중… (최대 20초)`);
+  toast(`Checking ${name}… (up to 20s)`);
   try {
     const v = await api(`/api/agents/${name}/check`, { method: 'POST' });
     cur.agents = cur.agents.map((a) => a.name === name ? v : a);
     render();
-    toast(v.auth_ok ? '연결 확인!' : '아직 연결되지 않았어요');
+    toast(v.auth_ok ? 'Connection confirmed!' : 'Not connected yet');
   } catch (e) { showErr(e); }
 }
 async function openTerminal(name) {

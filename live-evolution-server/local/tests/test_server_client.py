@@ -67,7 +67,7 @@ def test_connection_error_user_message(env, tmp_path):
     dead = OpsClient(base_url="http://127.0.0.1:1", token=TEST_TOKEN)
     with pytest.raises(OpsError) as e:
         dead.health()
-    assert "연결할 수 없습니다" in e.value.user_msg
+    assert "Cannot connect" in e.value.user_msg
 
 
 def test_single_gateway_no_direct_httpx(env):

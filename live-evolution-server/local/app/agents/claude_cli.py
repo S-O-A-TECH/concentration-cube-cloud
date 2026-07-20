@@ -24,7 +24,7 @@ _DEFAULT_ARGS = ["--allowedTools", "Read,Write,Edit,Bash"]
 class ClaudeAdapter(AgentAdapter):
     name = "claude"
     display = "Claude Code"
-    install_hint = "설치: npm install -g @anthropic-ai/claude-code"
+    install_hint = "Install: npm install -g @anthropic-ai/claude-code"
 
     def _extra_args(self) -> list[str]:
         v = get_setting("agent_claude_args")
@@ -33,12 +33,12 @@ class ClaudeAdapter(AgentAdapter):
     def check_auth(self) -> AuthResult:
         exe = resolve_exe(self.name)
         if not exe:
-            return AuthResult(False, detail="설치되어 있지 않아요.", checked_at=self.now())
+            return AuthResult(False, detail="Not installed.", checked_at=self.now())
         cmd = [exe, "-p", "reply with exactly: OK", "--output-format", "json"]
         code, out, err, _, error = run_cli(cmd, None, timeout=self.auth_timeout())
         shown = " ".join(cmd[:1] + cmd[1:3]) + " --output-format json"
         if error:
-            return AuthResult(False, detail=f"응답 없음 — {error}. 로그인이 필요할 수 있어요.",
+            return AuthResult(False, detail=f"No response — {error}. Login may be required.",
                               command=shown, checked_at=self.now())
         ok = False
         detail = ""
@@ -53,13 +53,13 @@ class ClaudeAdapter(AgentAdapter):
         if not ok:
             low = (out + err).lower()
             if any(k in low for k in ("login", "auth", "credential", "api key", "unauthorized")):
-                detail = "로그인이 필요해요. [터미널 열기]로 로그인을 마친 뒤 [다시 확인]을 눌러 주세요."
+                detail = "Login required. Use [Open terminal] to finish logging in, then press [Check again]."
         return AuthResult(ok, detail=detail, command=shown, checked_at=self.now())
 
     def propose(self, workspace: Path, timeout_sec: float) -> AgentOutput:
         exe = resolve_exe(self.name)
         if not exe:
-            return AgentOutput(False, error="claude CLI 미설치")
+            return AgentOutput(False, error="claude CLI not installed")
         mission = (workspace / "MISSION.md").read_text(encoding="utf-8")
         # MISSION 전문은 stdin 으로 (argv 금지 — .cmd 셔틀의 개행 손상, run_cli 주석 참고)
         cmd = [exe, "-p", "--output-format", "json", *self._extra_args()]
@@ -79,10 +79,10 @@ class ClaudeAdapter(AgentAdapter):
         if proposal is None:
             return AgentOutput(False, command=shown_cmd, stdout=out, stderr=err,
                                exit_code=code, duration_sec=dur, cost_usd=cost,
-                               error="output/proposal.json 이 없고 stdout 에서도 proposal.v1 을 찾지 못했습니다")
+                               error="output/proposal.json is missing and no proposal.v1 was found in stdout")
         return AgentOutput(True, proposal=proposal, proposal_source=source,
                            command=shown_cmd, stdout=out, stderr=err, exit_code=code,
                            duration_sec=dur, cost_usd=cost)
 
     def terminal_command(self) -> list[str]:
-        return ["cmd", "/c", "start", "Claude 로그인", "cmd", "/k", "claude"]
+        return ["cmd", "/c", "start", "Claude login", "cmd", "/k", "claude"]

@@ -47,40 +47,40 @@ def _num(v) -> bool:
 def _stage1_schema(p: dict) -> list[str]:
     errs = []
     if not isinstance(p, dict):
-        return ["proposal 이 JSON 오브젝트가 아닙니다"]
+        return ["proposal is not a JSON object"]
     for f in _REQUIRED_FIELDS:
         if f not in p:
-            errs.append(f"필수 필드 누락: {f}")
+            errs.append(f"Missing required field: {f}")
     if errs:
         return errs
     if p["schema"] != "proposal.v1":
-        errs.append(f"schema 는 proposal.v1 이어야 합니다 (받음: {p['schema']})")
+        errs.append(f"schema must be proposal.v1 (got: {p['schema']})")
     if p["level"] != 1:
-        errs.append("v0 은 level 1 만 지원합니다")
+        errs.append("v0 only supports level 1")
     if not isinstance(p["new_params"], dict) or not p["new_params"]:
-        errs.append("new_params 는 비어있지 않은 오브젝트여야 합니다")
+        errs.append("new_params must be a non-empty object")
     if not isinstance(p["changes"], list) or not p["changes"]:
-        errs.append("changes 는 비어있지 않은 배열이어야 합니다")
+        errs.append("changes must be a non-empty array")
     else:
         for i, ch in enumerate(p["changes"]):
             if not isinstance(ch, dict) or not {"key", "from", "to", "reason"} <= set(ch):
-                errs.append(f"changes[{i}] 는 key/from/to/reason 을 가져야 합니다")
+                errs.append(f"changes[{i}] must have key/from/to/reason")
     st = p["self_test"]
     if not isinstance(st, dict) or "train_before" not in st or "train_after" not in st:
-        errs.append("self_test 는 train_before / train_after 를 가져야 합니다")
+        errs.append("self_test must have train_before / train_after")
     else:
         for side in ("train_before", "train_after"):
             block = st[side]
             if not isinstance(block, dict):
-                errs.append(f"self_test.{side} 형식 오류")
+                errs.append(f"self_test.{side} format error")
                 continue
             for stt, m in block.items():
                 if stt not in core.LABEL_STATES:
-                    errs.append(f"self_test.{side} 의 알 수 없는 상태: {stt}")
+                    errs.append(f"self_test.{side} has unknown state: {stt}")
                 elif not isinstance(m, dict) or not {"sens", "spec"} <= set(m):
-                    errs.append(f"self_test.{side}.{stt} 는 sens/spec 을 가져야 합니다")
+                    errs.append(f"self_test.{side}.{stt} must have sens/spec")
     if not str(p.get("diagnosis", "")).strip():
-        errs.append("diagnosis 가 비어 있습니다")
+        errs.append("diagnosis is empty")
     return errs
 
 
@@ -95,31 +95,31 @@ def _stage2_bounds(p: dict, current_params: dict, tb: dict) -> list[str]:
         missing = sorted(set(cur_flat) - set(new_flat))[:20]
         extra = sorted(set(new_flat) - set(cur_flat))[:20]
         if missing:
-            errs.append(f"new_params 에 빠진 키: {missing}")
+            errs.append(f"missing key(s) in new_params: {missing}")
         if extra:
-            errs.append(f"new_params 에 허용되지 않은 새 키: {extra}")
+            errs.append(f"disallowed new key(s) in new_params: {extra}")
         return errs
     bounds = tb.get("bounds", {})
     for key, newv in new_flat.items():
         if newv == cur_flat[key]:
             continue
         if not _num(newv) and not isinstance(newv, str):
-            errs.append(f"{key}: 값 형식 오류 ({type(newv).__name__})")
+            errs.append(f"{key}: value format error ({type(newv).__name__})")
             continue
         if _num(cur_flat[key]) != _num(newv):
-            errs.append(f"{key}: 타입 변경 금지 ({cur_flat[key]!r} → {newv!r})")
+            errs.append(f"{key}: type change not allowed ({cur_flat[key]!r} → {newv!r})")
             continue
         b = bounds.get(key)
         if b and _num(newv):
             if not (b["min"] <= newv <= b["max"]):
-                errs.append(f"{key}: {newv} 가 경계 [{b['min']}, {b['max']}] 밖입니다")
+                errs.append(f"{key}: {newv} is out of bounds [{b['min']}, {b['max']}]")
     for a, op, b_key in tb.get("pair_constraints", []):
         va, vb = new_flat.get(a), new_flat.get(b_key)
         if _num(va) and _num(vb) and op == "<" and not va < vb:
-            errs.append(f"제약 위반: {a}({va}) < {b_key}({vb}) 이어야 합니다")
+            errs.append(f"constraint violated: {a}({va}) < {b_key}({vb}) required")
     sfi = {k: v for k, v in new_flat.items() if k.startswith("sfi_weights.")}
     if sfi and abs(sum(sfi.values()) - 100) > 1e-6:
-        errs.append(f"sfi_weights 합이 100 이 아닙니다 (현재 {sum(sfi.values())})")
+        errs.append(f"sfi_weights do not sum to 100 (currently {sum(sfi.values())})")
     return errs
 
 
@@ -140,32 +140,32 @@ def _stage3_discipline(p: dict, current_params: dict, tb: dict,
     for ch in p["changes"]:
         declared[ch["key"]] = ch["to"]
         if ch["key"] not in cur_flat:
-            errs.append(f"changes 의 알 수 없는 키: {ch['key']}")
+            errs.append(f"unknown key in changes: {ch['key']}")
             continue
         if _num(ch["from"]) and _num(cur_flat[ch["key"]]):
             if abs(ch["from"] - cur_flat[ch["key"]]) > 1e-9:
-                errs.append(f"{ch['key']}: from({ch['from']}) 이 현재값({cur_flat[ch['key']]})과 다릅니다")
+                errs.append(f"{ch['key']}: from({ch['from']}) differs from the current value ({cur_flat[ch['key']]})")
         elif ch["from"] != cur_flat[ch["key"]]:
-            errs.append(f"{ch['key']}: from 이 현재값과 다릅니다")
+            errs.append(f"{ch['key']}: from differs from the current value")
     undeclared = sorted(set(changed) - set(declared))
     if undeclared:
-        errs.append(f"changes 에 신고되지 않은 은닉 변경: {undeclared}")
+        errs.append(f"undeclared hidden change(s) in changes: {undeclared}")
     for k, v in declared.items():
         if k in changed and changed[k] != v:
-            errs.append(f"{k}: changes.to({v}) 와 new_params({changed[k]}) 불일치")
+            errs.append(f"{k}: changes.to({v}) mismatches new_params({changed[k]})")
         if k not in changed:
-            errs.append(f"{k}: changes 에 있으나 new_params 는 현재값 그대로입니다")
+            errs.append(f"{k}: present in changes but new_params keeps the current value")
     if len(changed) > MAX_CHANGES:
-        errs.append(f"변경 키 {len(changed)}개 — 최대 {MAX_CHANGES}개")
+        errs.append(f"{len(changed)} changed keys — max {MAX_CHANGES}")
     allowed = set(tb.get("allowed_keys", []))
     outside = sorted(set(changed) - allowed)
     if outside:
-        errs.append(f"관측된 실패 모드의 표적(targets) 밖 변경: {outside}")
+        errs.append(f"change(s) outside the observed failure-mode targets: {outside}")
     this_set = {(k, json.dumps(v)) for k, v in changed.items()}
     for h in history:
         h_set = {(c["key"], json.dumps(c["to"])) for c in h.get("changes", [])}
         if h_set and h_set == this_set:
-            errs.append(f"과거 세대({h.get('gen_id') or h.get('version')})와 동일한 변경 세트 — 중복 시도 금지")
+            errs.append(f"same change set as a past generation ({h.get('gen_id') or h.get('version')}) — duplicate attempt not allowed")
             break
     return errs
 
@@ -175,7 +175,7 @@ def _stage3_discipline(p: dict, current_params: dict, tb: dict,
 def _stage4_recompute(p: dict, workspace: Path) -> tuple[list[str], list[str], dict | None]:
     lite_path = workspace / "data" / "train_lite.parquet"
     if not lite_path.exists():
-        return ["작업장에 train_lite.parquet 이 없어 재계산할 수 없습니다"], [], None
+        return ["train_lite.parquet not in workspace — cannot recompute"], [], None
     df = pd.read_parquet(lite_path)
     ours = core.eval_train_lite(df, p["new_params"])["per_state"]
     errs: list[str] = []
@@ -190,8 +190,8 @@ def _stage4_recompute(p: dict, workspace: Path) -> tuple[list[str], list[str], d
                 continue
             if ov is None or cv is None or abs(float(ov) - float(cv)) > RECOMPUTE_TOL:
                 errs.append(
-                    f"자가시험 불일치 [{st}.{metric}]: 에이전트 주장 {cv} vs 재계산 {ov} "
-                    f"(허용 ±{RECOMPUTE_TOL * 100:.1f}%p) — 환각/조작 의심, 기각")
+                    f"self-test mismatch [{st}.{metric}]: agent claims {cv} vs recomputed {ov} "
+                    f"(tolerance ±{RECOMPUTE_TOL * 100:.1f}%p) — suspected hallucination/fabrication, rejected")
     # train_before 는 경고만 — 기각 근거는 after (SPEC-06 §5)
     ours_before = None
     claimed_before = p["self_test"].get("train_before") or {}
@@ -206,7 +206,7 @@ def _stage4_recompute(p: dict, workspace: Path) -> tuple[list[str], list[str], d
                     ov = (ours_before.get(st) or {}).get(metric)
                     cv = (claimed_before.get(st) or {}).get(metric)
                     if ov is not None and cv is not None and abs(float(ov) - float(cv)) > RECOMPUTE_TOL:
-                        warns.append(f"train_before 불일치 [{st}.{metric}]: 주장 {cv} vs 재계산 {ov}")
+                        warns.append(f"train_before mismatch [{st}.{metric}]: claims {cv} vs recomputed {ov}")
     return errs, warns, {"train_after_recomputed": ours,
                          "train_before_recomputed": ours_before}
 
@@ -226,6 +226,6 @@ def validate_proposal(proposal: dict, current_params: dict, targets_bounds: dict
     if errs:
         return ValidationResult(False, 3, errs)
     if not do_recompute or workspace is None:
-        return ValidationResult(True, 3, warnings=["4단계 재계산은 실행하지 않았습니다"])
+        return ValidationResult(True, 3, warnings=["stage-4 recomputation was not run"])
     errs, warns, recompute = _stage4_recompute(proposal, workspace)
     return ValidationResult(not errs, 4, errs, warns, recompute)

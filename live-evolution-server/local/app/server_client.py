@@ -42,20 +42,20 @@ class OpsClient:
             r = httpx.request(method, url, json=json_body, params=params,
                               headers=headers, timeout=timeout)
         except httpx.ConnectError as e:
-            raise OpsError(f"운영 서버({self.base_url})에 연결할 수 없습니다. "
-                           "서버(또는 mock: python run_mock_ops.py)가 켜져 있는지 확인해 주세요.",
+            raise OpsError(f"Cannot connect to the operations server ({self.base_url}). "
+                           "Check that the server (or mock: python run_mock_ops.py) is running.",
                            detail=str(e))
         except httpx.TimeoutException as e:
-            raise OpsError("운영 서버 응답이 늦습니다 (10초 초과). 잠시 후 다시 시도해 주세요.",
+            raise OpsError("The operations server is slow to respond (over 10s). Please try again shortly.",
                            detail=str(e))
         except httpx.HTTPError as e:
             # ReadError/RemoteProtocolError/ProxyError 등 — 전부 사용자 문장으로 (리뷰 MAJOR 2:
             # 이 계층이 새면 '미연결이어도 화면은 뜬다' 원칙이 500 으로 깨진다)
-            raise OpsError(f"운영 서버 통신 오류: {type(e).__name__}. 잠시 후 다시 시도해 주세요.",
+            raise OpsError(f"Operations server communication error: {type(e).__name__}. Please try again shortly.",
                            detail=str(e))
         if r.status_code in (401, 403):
-            raise OpsError("EVOLUTION_TOKEN 이 유효하지 않습니다. "
-                           ".env 의 토큰이 운영 서버와 같은 값인지 확인해 주세요.",
+            raise OpsError("EVOLUTION_TOKEN is not valid. "
+                           "Check that the token in .env matches the operations server.",
                            status=r.status_code, detail=r.text)
         if r.status_code >= 400:
             try:

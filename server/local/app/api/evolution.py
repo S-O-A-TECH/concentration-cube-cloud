@@ -515,9 +515,9 @@ def promote_param_set(param_set_id: int, body: PromoteIn,
         raise HTTPException(404, "param_set not found")
     if ps.status != "passed":
         raise HTTPException(409, f"promote requires status=passed (now {ps.status}) — "
-                                 f"게이트 미통과는 사람이 눌러도 불가")
+                                 f"a human click cannot override a failed gate")
     if not body.confirm:
-        raise HTTPException(422, "confirm:true required — 채택은 명시적 사람 결정")
+        raise HTTPException(422, "confirm:true required — adoption is an explicit human decision")
     _reject_if_rescore_busy(db)
     ps.status = "adopted"
     ps.adopted_at = datetime.now(timezone.utc)

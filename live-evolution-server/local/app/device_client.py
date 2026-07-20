@@ -42,8 +42,8 @@ class DeviceClient:
             r = httpx.request(method, f"{self.base_url}{path}", json=json_body,
                               params=params, timeout=timeout)
         except httpx.HTTPError as e:
-            raise DeviceError(f"기기(웹캠 프로토, {self.base_url})에 연결할 수 없습니다. "
-                              "웹캠 프로토(run.py)가 켜져 있는지 확인해 주세요.", detail=str(e))
+            raise DeviceError(f"Cannot connect to the device (webcam proto, {self.base_url}). "
+                              "Check that the webcam proto (run.py) is running.", detail=str(e))
         if r.status_code >= 400:
             try:
                 detail = r.json().get("detail", r.text)

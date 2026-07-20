@@ -63,7 +63,7 @@ def try_login(user_id: str, password: str) -> tuple[bool, str]:
     with _lock:
         remain = int(_locked_until - time.time())
         if remain > 0:
-            return False, f"로그인이 잠겨 있습니다. {remain}초 후 다시 시도해 주세요."
+            return False, f"Login is locked. Please try again in {remain}s."
         ok = hmac.compare_digest(user_id, cfg.admin_id) and hmac.compare_digest(password, cfg.admin_pw)
         if ok:
             _fails = 0
@@ -72,8 +72,8 @@ def try_login(user_id: str, password: str) -> tuple[bool, str]:
         if _fails >= MAX_FAILS:
             _locked_until = time.time() + LOCK_SEC
             _fails = 0
-            return False, f"{MAX_FAILS}회 실패 — {LOCK_SEC // 60}분간 잠급니다."
-        return False, f"아이디 또는 비밀번호가 다릅니다. (실패 {_fails}/{MAX_FAILS})"
+            return False, f"{MAX_FAILS} failures — locking for {LOCK_SEC // 60} min."
+        return False, f"Wrong username or password. (failure {_fails}/{MAX_FAILS})"
 
 
 def reset_lock() -> None:
@@ -92,5 +92,5 @@ def require_api_auth(request: Request) -> str:
     """/api/* 의존성 — 미인증 401 (프론트 api.js 가 /login 으로 보냄)."""
     user = current_user(request)
     if not user:
-        raise HTTPException(401, "로그인이 필요합니다.")
+        raise HTTPException(401, "Login required.")
     return user

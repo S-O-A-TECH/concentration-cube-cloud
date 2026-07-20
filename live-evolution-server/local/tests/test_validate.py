@@ -56,7 +56,7 @@ def test_stage1_schema_missing_fields():
 def test_stage2_bounds_violation():
     r = _run(_good(to=0.5))   # max 0.10
     assert not r.ok and r.stage == 2
-    assert any("경계" in e for e in r.errors)
+    assert any("out of bounds" in e for e in r.errors)
 
 
 def test_stage2_keyset_mismatch():
@@ -64,7 +64,7 @@ def test_stage2_keyset_mismatch():
     del p["new_params"]["qc"]
     r = _run(p)
     assert not r.ok and r.stage == 2
-    assert any("빠진 키" in e for e in r.errors)
+    assert any("missing key" in e for e in r.errors)
 
 
 def test_stage2_sfi_sum_must_be_100():
@@ -81,7 +81,7 @@ def test_stage2_pair_constraint_enter_lt_exit():
     p = _good(key="gaze.offpage_prob_th_enter", to=0.58)  # exit 0.55 보다 큼
     r = _run(p, tb=tb)
     assert not r.ok and r.stage == 2
-    assert any("제약 위반" in e for e in r.errors)
+    assert any("constraint violated" in e for e in r.errors)
 
 
 def test_stage3_hidden_change_detected():
@@ -89,14 +89,14 @@ def test_stage3_hidden_change_detected():
     p["new_params"]["gaze"]["page_margin"] = 0.2   # changes 에 미신고
     r = _run(p)
     assert not r.ok and r.stage == 3
-    assert any("은닉" in e for e in r.errors)
+    assert any("hidden" in e for e in r.errors)
 
 
 def test_stage3_outside_targets():
     p = _good(key="drowsy.perclos_th", to=0.3)     # 관측 실패 모드는 blank_stare 뿐
     r = _run(p)
     assert not r.ok and r.stage == 3
-    assert any("표적" in e for e in r.errors)
+    assert any("target" in e for e in r.errors)
 
 
 def test_stage3_too_many_changes():
@@ -115,7 +115,7 @@ def test_stage3_too_many_changes():
         p["changes"].append({"key": k, "from": frm, "to": g[last[-1]], "reason": "x"})
     r = _run(p, tb=tb)
     assert not r.ok and r.stage == 3
-    assert any("최대 8" in e for e in r.errors)
+    assert any("max 8" in e for e in r.errors)
 
 
 def test_stage3_history_duplicate():
@@ -124,7 +124,7 @@ def test_stage3_history_duplicate():
                                             "to": p["changes"][0]["to"]}]}]
     r = _run(p, history=hist)
     assert not r.ok and r.stage == 3
-    assert any("중복" in e for e in r.errors)
+    assert any("duplicate" in e for e in r.errors)
 
 
 # ------------------------------------------------------------------ 4단계 (재계산 대조)
@@ -186,4 +186,4 @@ def test_stage4_forged_self_test_rejected(mini_workspace):
     p["self_test"]["train_after"] = forged
     r = validate_proposal(p, _PARAMS, _TB, [], workspace=mini_workspace, do_recompute=True)
     assert not r.ok and r.stage == 4
-    assert any("불일치" in e for e in r.errors)
+    assert any("mismatch" in e for e in r.errors)

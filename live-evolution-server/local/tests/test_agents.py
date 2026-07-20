@@ -45,7 +45,7 @@ def test_claude_auth_login_needed_hint(env, monkeypatch):
     _patch_run(monkeypatch, mod, 1, "", err="Invalid API key · Please run /login")
     a = ClaudeAdapter().check_auth()
     assert not a.ok
-    assert "로그인" in a.detail
+    assert "login" in a.detail.lower()
 
 
 def test_codex_auth_ok(env, monkeypatch):

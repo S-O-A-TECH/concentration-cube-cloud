@@ -39,9 +39,7 @@ from ..loop.bounds import flatten
 from ..loop.sim import classify_core as core
 from .base import AgentAdapter, AgentOutput, AuthResult, DetectResult, extract_json_block
 
-# 국제(싱가포르) 공용 엔드포인트. 전용 워크스페이스를 쓰면 QWEN_BASE_URL 로 덮어쓴다:
-#   https://ws-<workspace-id>.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
-_DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+_DEFAULT_BASE_URL = "https://ws-zaqxp71nabyx0aqj.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
 _DEFAULT_MODEL = "qwen3.7-max"           # 워크스페이스에서 승인된 모델이어야 한다
 _HTTP_TIMEOUT = 180.0                    # 요청 1건 상한 (propose 총 타임아웃과 별개로 캡)
 _RETRIES = 2                             # 5xx·타임아웃·네트워크 오류에 한해 재시도
@@ -86,7 +84,7 @@ _EVIDENCE_LIMIT = {
 class QwenApiAdapter(AgentAdapter):
     name = "qwen"
     display = "Qwen (API)"
-    install_hint = "API 키 설정: local/.env 에 QWEN_API_KEY=... (또는 DASHSCOPE_API_KEY) 추가 후 서버 재시작"
+    install_hint = "Set API key: add QWEN_API_KEY=... (or DASHSCOPE_API_KEY) to local/.env and restart the server"
 
     # ------------------------------------------------------------ 설정 해석
 
@@ -122,7 +120,7 @@ class QwenApiAdapter(AgentAdapter):
         conf = self._conf()
         if not conf["api_key"]:
             return DetectResult(False, command=self._shown_cmd(conf),
-                                error=f"{self.display} 키가 없습니다. {self.install_hint}")
+                                error=f"{self.display} API key is not set. {self.install_hint}")
         return DetectResult(True, version=conf["model"], command=self._shown_cmd(conf))
 
     def check_auth(self) -> AuthResult:
@@ -131,8 +129,8 @@ class QwenApiAdapter(AgentAdapter):
         shown = self._shown_cmd(conf)
         if not conf["api_key"]:
             return AuthResult(False, command=shown, checked_at=self.now(),
-                              detail="QWEN_API_KEY(또는 DASHSCOPE_API_KEY)가 없습니다. "
-                                     "local/.env 에 키를 넣고 서버를 재시작해 주세요.")
+                              detail="QWEN_API_KEY (or DASHSCOPE_API_KEY) is not set. "
+                                     "Put the key in local/.env and restart the server.")
         url = f"{conf['base_url']}/chat/completions"
         headers = {"Authorization": f"Bearer {conf['api_key']}", "Content-Type": "application/json"}
         payload = {"model": conf["model"], "temperature": 0, "max_tokens": 8,
@@ -141,20 +139,20 @@ class QwenApiAdapter(AgentAdapter):
             r = _post_once(url, headers, payload, min(_HTTP_TIMEOUT, 30.0))
         except Exception as e:  # 네트워크·타임아웃 — httpx.HTTPError 등
             return AuthResult(False, command=shown, checked_at=self.now(),
-                              detail=f"응답 없음 — {type(e).__name__}. 엔드포인트/네트워크를 확인해 주세요.")
+                              detail=f"No response — {type(e).__name__}. Check the endpoint/network.")
         if r.status_code in (401, 403):
             return AuthResult(False, command=shown, checked_at=self.now(),
-                              detail="인증 실패 — QWEN_API_KEY 가 올바른지 확인해 주세요.")
+                              detail="Authentication failed — check that QWEN_API_KEY is correct.")
         if r.status_code >= 400:
             return AuthResult(False, command=shown, checked_at=self.now(),
                               detail=f"HTTP {r.status_code}: {(r.text or '')[:160]}")
         return AuthResult(True, command=shown, checked_at=self.now(),
-                          detail=f"{conf['model']} 응답 확인")
+                          detail=f"{conf['model']} response OK")
 
     def terminal_command(self) -> list[str]:
         """API 어댑터는 OAuth 터미널 로그인이 없다 — 키 설정 안내창을 띄운다."""
-        return ["cmd", "/c", "start", "Qwen 설정 안내", "cmd", "/k",
-                "echo Qwen 은 CLI 로그인이 없습니다. local\\.env 에 QWEN_API_KEY 를 넣고 서버를 재시작하세요."]
+        return ["cmd", "/c", "start", "Qwen setup guide", "cmd", "/k",
+                "echo Qwen has no CLI login. Put QWEN_API_KEY in local\\.env and restart the server."]
 
     # ------------------------------------------------------------ 제안
 
@@ -162,7 +160,7 @@ class QwenApiAdapter(AgentAdapter):
         conf = self._conf()
         shown = self._shown_cmd(conf)
         if not conf["api_key"]:
-            return AgentOutput(False, command=shown, error="QWEN_API_KEY 미설정 — .env 에 키를 넣어 주세요")
+            return AgentOutput(False, command=shown, error="QWEN_API_KEY not set — put the key in .env")
 
         # 증거 로드 (CLI 는 파일을 직접 읽지만 우리는 서버가 읽어 프롬프트에 담는다)
         try:
@@ -170,7 +168,7 @@ class QwenApiAdapter(AgentAdapter):
             tb = _read_json(workspace / "input" / "targets_bounds.json")
             df = pd.read_parquet(workspace / "data" / "train_lite.parquet")
         except Exception as e:
-            return AgentOutput(False, command=shown, error=f"작업장 증거 읽기 실패: {e}")
+            return AgentOutput(False, command=shown, error=f"Failed to read workspace evidence: {e}")
 
         before = core.eval_train_lite(df, current_params)["per_state"]
         cur_flat = flatten(current_params)
@@ -189,12 +187,12 @@ class QwenApiAdapter(AgentAdapter):
         if cand is None:
             return AgentOutput(False, command=shown, stdout=content[-8000:],
                                duration_sec=time.monotonic() - t0,
-                               error="LLM 응답에서 JSON 오브젝트를 파싱하지 못했습니다")
+                               error="Could not parse a JSON object from the LLM response")
         applied = _coerce_changes(_candidate_changes(cand, cur_flat), cur_flat, tb)
         if not applied:
             return AgentOutput(False, command=shown, stdout=content[-8000:],
                                duration_sec=time.monotonic() - t0,
-                               error="유효한 변경이 없습니다 (allowed_keys·bounds 안의 실제 값 변화 0건)")
+                               error="No valid changes (0 actual value changes within allowed_keys/bounds)")
         new_params = _apply(current_params, applied)
         after = core.eval_train_lite(df, new_params)["per_state"]
         n_runs = 2  # before + after (서버가 돌린 simulate 횟수)
@@ -213,7 +211,7 @@ class QwenApiAdapter(AgentAdapter):
                     np2 = _apply(current_params, applied2)
                     after2 = core.eval_train_lite(df, np2)["per_state"]
                     n_runs += 1
-                    transcript += "\n\n----- 정련 재제안 -----\n" + content2
+                    transcript += "\n\n----- refinement re-proposal -----\n" + content2
                     if _score(before, after2, tb) > _score(before, after, tb):
                         cand, applied, new_params, after = cand2, applied2, np2, after2
                     usage = usage2 or usage
@@ -279,27 +277,27 @@ class QwenApiAdapter(AgentAdapter):
                 if attempt < _RETRIES:
                     time.sleep(_BACKOFF[min(attempt, len(_BACKOFF) - 1)])
                     continue
-                raise QwenError(f"Qwen API 응답 없음 — {last}")
+                raise QwenError(f"Qwen API no response — {last}")
             if r.status_code >= 500:
                 last = f"HTTP {r.status_code}"
                 if attempt < _RETRIES:
                     time.sleep(_BACKOFF[min(attempt, len(_BACKOFF) - 1)])
                     continue
-                raise QwenError(f"Qwen API 5xx 반복 — {last}: {(r.text or '')[:300]}")
+                raise QwenError(f"Qwen API repeated 5xx — {last}: {(r.text or '')[:300]}")
             if r.status_code in (401, 403):
-                raise QwenError(f"Qwen API 인증 실패(HTTP {r.status_code}) — QWEN_API_KEY 확인")
+                raise QwenError(f"Qwen API auth failed (HTTP {r.status_code}) — check QWEN_API_KEY")
             if r.status_code >= 400:
                 # response_format 미지원 모델이면 한 번 빼고 재시도 (그레이스풀 폴백)
                 if payload.pop("response_format", None) is not None:
                     continue
-                raise QwenError(f"Qwen API 오류(HTTP {r.status_code}): {(r.text or '')[:300]}")
+                raise QwenError(f"Qwen API error (HTTP {r.status_code}): {(r.text or '')[:300]}")
             try:
                 data = r.json()
                 content = data["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e:
-                raise QwenError(f"Qwen 응답 형식 오류: {type(e).__name__}: {e}")
+                raise QwenError(f"Qwen response format error: {type(e).__name__}: {e}")
             return content or "", (data.get("usage") or {})
-        raise QwenError(last or "Qwen API 알 수 없는 오류")
+        raise QwenError(last or "Qwen API unknown error")
 
 
 # ------------------------------------------------------------------ 순수 헬퍼
@@ -389,7 +387,7 @@ def _coerce_changes(changes: list[dict], cur_flat: dict, tb: dict) -> list[dict]
                 continue
         seen.add(key)
         out.append({"key": key, "from": cur, "to": to,
-                    "reason": str(ch.get("reason") or "").strip()[:400] or "(LLM 미기재)"})
+                    "reason": str(ch.get("reason") or "").strip()[:400] or "(LLM did not specify)"})
         if len(out) >= _MAX_CHANGES:
             break
     return out
@@ -454,7 +452,7 @@ def _assemble(cand: dict, new_params: dict, applied: list[dict],
     return {
         "schema": "proposal.v1",
         "level": 1,
-        "diagnosis": str(cand.get("diagnosis") or "").strip() or "(LLM 진단 미제공)",
+        "diagnosis": str(cand.get("diagnosis") or "").strip() or "(no LLM diagnosis provided)",
         "new_params": new_params,
         "changes": applied,
         "self_test": {

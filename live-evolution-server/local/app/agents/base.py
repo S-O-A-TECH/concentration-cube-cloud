@@ -68,11 +68,11 @@ def run_cli(cmd: list[str], cwd: Path | None, timeout: float,
     except subprocess.TimeoutExpired as e:
         out = e.stdout.decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
         err = e.stderr.decode("utf-8", "replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
-        return None, out, err, time.monotonic() - t0, f"타임아웃({int(timeout)}s) 초과"
+        return None, out, err, time.monotonic() - t0, f"Timed out after {int(timeout)}s"
     except FileNotFoundError:
-        return None, "", "", time.monotonic() - t0, "실행 파일을 찾을 수 없습니다"
+        return None, "", "", time.monotonic() - t0, "Executable not found"
     except OSError as e:
-        return None, "", "", time.monotonic() - t0, f"실행 실패: {e}"
+        return None, "", "", time.monotonic() - t0, f"Execution failed: {e}"
 
 
 def resolve_exe(name: str) -> str | None:
@@ -135,7 +135,7 @@ class AgentAdapter:
         exe = resolve_exe(self.name)
         if not exe:
             return DetectResult(False, command=f"{self.name} --version",
-                                error=f"{self.display} 가 설치되어 있지 않아요. {self.install_hint}")
+                                error=f"{self.display} is not installed. {self.install_hint}")
         code, out, err, _, error = run_cli([exe, "--version"], None, timeout=5.0)
         if error or code != 0:
             return DetectResult(False, command=f'"{exe}" --version',

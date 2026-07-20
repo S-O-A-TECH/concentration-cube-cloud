@@ -55,7 +55,7 @@ class TriggerService:
         if decide_trigger(labeled, labels_at_last_generation(), n):
             self.notice = {
                 "kind": "proposal_ready",
-                "msg": f"새 라벨 세션 {labeled - labels_at_last_generation()}개 누적 — 제안 준비됨",
+                "msg": f"{labeled - labels_at_last_generation()} new labeled sessions accumulated — proposal ready",
                 "at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             }
             loop = get_loop()
@@ -65,7 +65,7 @@ class TriggerService:
                     record_generation_baseline(labeled)
                     loop.run(auto=True)   # PASSED 에서 정지 — 채택은 언제나 수동
                     self.notice = {"kind": "auto_started",
-                                   "msg": "자동 제안 모드 — 세대 실행을 시작했습니다 (채택은 수동)",
+                                   "msg": "Auto-propose mode — generation run started (adoption is manual)",
                                    "at": self.notice["at"]}
         else:
             self.notice = None

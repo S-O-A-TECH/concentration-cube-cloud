@@ -1,59 +1,59 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>대시보드 — Live Evolution</title>
+<title>Dashboard — Live Evolution</title>
 <link rel="stylesheet" href="/static/css/app.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
 </head>
 <body>
 <main>
-  <h1>대시보드</h1>
-  <p class="sub">지금 할 일과 준비 상태가 한눈에</p>
+  <h1>Dashboard</h1>
+  <p class="sub">Your next action and readiness at a glance</p>
 
   <div id="next-action"></div>
 
   <div class="card">
-    <h2 style="margin-top:0">준비 체크리스트 <span class="sub" style="font-weight:400">— 4개가 채워지면 진화를 돌릴 수 있어요</span></h2>
-    <div class="readiness" id="readiness"><span class="sub">불러오는 중…</span></div>
+    <h2 style="margin-top:0">Readiness checklist <span class="sub" style="font-weight:400">— fill all 4 and you can run evolution</span></h2>
+    <div class="readiness" id="readiness"><span class="sub">Loading…</span></div>
   </div>
 
   <details class="help">
-    <summary>처음이세요? — 이 콘솔의 사용 순서 (진화 1세대의 전 과정)</summary>
+    <summary>First time? — how to use this console (the full path of one evolution generation)</summary>
     <div class="body">
-      이 콘솔의 목적은 하나입니다: <b class="k">정답지(사람이 실시간으로 만든 라벨)로 판정 엔진의 약점을 찾아,
-      AI 에이전트가 제안한 개선안을 시험하고, 통과한 것만 사람이 [채택]하는 것.</b>
-      아래 순서대로 한 바퀴 돌면 "진화 1세대"가 완성됩니다.
+      This console has one purpose: <b class="k">use ground truth (labels a human makes in real time) to find the
+      decision engine's weaknesses, test the improvements an AI agent proposes, and let a human [Adopt] only the ones that pass.</b>
+      Going around the steps below once completes "one evolution generation".
       <div class="flow-steps">
-        <a class="step" href="/agent"><span><span class="t">에이전트 연결</span>
-          <div class="d">Claude Code 또는 Codex 를 연결합니다. 개선안을 "생각해 주는" 도구 —
-          한 번 초록불이 되면 이후에는 신경 쓸 일이 없습니다.</div></span></a>
-        <a class="step" href="/console"><span><span class="t">검증 세션으로 정답지 만들기</span>
-          <div class="d">피검자에게 "집중해!"·"멍때려~" 지시하며 동시에 버튼을 눌러 5분짜리 정답지를
-          만듭니다. <b>10개 이상</b> 모여야 진화를 실행할 수 있어요. (기기 = 웹캠 프로토 필요)</div></span></a>
-        <a class="step" href="/mistakes"><span><span class="t">오답노트 확인</span>
-          <div class="d">정답지와 기계 판정이 어긋난 구간을 봅니다 — "지금 엔진이 뭘 못 맞히나"가
-          한눈에. 여기서 바로 [진화 실행]으로 넘어갑니다.</div></span></a>
-        <a class="step" href="/evolve"><span><span class="t">진화 실행 → 제안 검토 → 후보 등록</span>
-          <div class="d">AI 가 오답 증거를 보고 파라미터 개선안을 만들어 옵니다(수 분 소요).
-          변경 내용과 근거를 읽고 [후보 등록]을 누르면 자동으로 시험(evaluate)까지 진행됩니다.</div></span></a>
-        <a class="step" href="/report"><span><span class="t">성적표 검토 → [채택]</span>
-          <div class="d">숨겨둔 시험지(holdout) 성적을 보고 사람이 결정합니다.
-          <b>[채택]을 누르기 전에는 아무것도 운영에 반영되지 않습니다.</b></div></span></a>
-        <a class="step" href="/generations"><span><span class="t">세대 이력에서 확인 (필요시 롤백)</span>
-          <div class="d">채택/기각의 전 과정이 계보로 남습니다. 문제가 보이면 [롤백] 두 번 클릭으로
-          직전 기준으로 되돌립니다.</div></span></a>
+        <a class="step" href="/agent"><span><span class="t">Connect an agent</span>
+          <div class="d">Connect Claude Code or Codex. The tool that "thinks up" improvements —
+          once it turns green you never have to touch it again.</div></span></a>
+        <a class="step" href="/console"><span><span class="t">Make ground truth in a validation session</span>
+          <div class="d">Instruct the subject "focus!" / "zone out~" while pressing the button at the same time to make a
+          5-minute ground truth. You need <b>10 or more</b> before you can run evolution. (device = webcam proto required)</div></span></a>
+        <a class="step" href="/mistakes"><span><span class="t">Check the Mistake Log</span>
+          <div class="d">See the bins where ground truth and the machine's judgment disagree — "what the engine gets wrong
+          right now" at a glance. Jump straight to [Run evolution] from here.</div></span></a>
+        <a class="step" href="/evolve"><span><span class="t">Run evolution → review proposal → register candidate</span>
+          <div class="d">The AI reads the mistake evidence and comes back with a parameter improvement (takes a few minutes).
+          Read the changes and rationale, press [Register candidate], and it proceeds automatically to the exam (evaluate).</div></span></a>
+        <a class="step" href="/report"><span><span class="t">Review the gate report → [Adopt]</span>
+          <div class="d">A human decides after seeing the hidden exam (holdout) score.
+          <b>Nothing reaches operations until you press [Adopt].</b></div></span></a>
+        <a class="step" href="/generations"><span><span class="t">Check in the generation history (rollback if needed)</span>
+          <div class="d">The whole adopt/reject path is kept as lineage. If you spot a problem, [Rollback] with two clicks
+          reverts to the previous criteria.</div></span></a>
       </div>
-      <h4>메뉴 한 줄 요약</h4>
+      <h4>One-line menu guide</h4>
       <ul>
-        <li><b class="k">검증 세션</b> — 정답지 생산 (매일 쓰는 화면)</li>
-        <li><b class="k">아카이브</b> — 모든 검증 세션의 열람·연구 제외/복원 (삭제는 없음)</li>
-        <li><b class="k">오답노트</b> — 현재 엔진의 약점 지도</li>
-        <li><b class="k">진화 실행</b> — AI 제안 1세대를 돌리는 곳</li>
-        <li><b class="k">성적표</b> — 채택 버튼이 있는 유일한 곳</li>
-        <li><b class="k">세대 이력</b> — 계보·원문·인쇄(임상 문서)·롤백</li>
-        <li><b class="k">에이전트 / 설정</b> — 최초 1회 + 가끔</li>
+        <li><b class="k">Validation session</b> — produce ground truth (the daily-use screen)</li>
+        <li><b class="k">Archive</b> — browse all validation sessions, exclude/restore from research (no deletion)</li>
+        <li><b class="k">Mistake Log</b> — a map of the current engine's weaknesses</li>
+        <li><b class="k">Run evolution</b> — where you run one generation of AI proposals</li>
+        <li><b class="k">Gate report</b> — the only place with the Adopt button</li>
+        <li><b class="k">Generations</b> — lineage, raw transcripts, print (clinical document), rollback</li>
+        <li><b class="k">Agent / Settings</b> — once at first + occasionally</li>
       </ul>
     </div>
   </details>
@@ -61,26 +61,26 @@
   <div id="notice"></div>
   <div class="grid3" id="cards" style="margin-top:14px"></div>
   <details class="help">
-    <summary>연결 카드 3장 읽는 법</summary>
+    <summary>How to read the 3 connection cards</summary>
     <div class="body">
       <ul>
-        <li><b class="k">ⓐ 운영 서버</b> — 세션·정답지·채점의 원천. 빨간불이면 mock 을 켜세요:
-          <code>python run_mock_ops.py --port 8101</code> (실서버 S5 완성 전까지의 대역).
-          이 콘솔은 원천 데이터를 갖지 않아서, 여기가 꺼져 있으면 화면들이 "연결 안내"만 보여줍니다.</li>
-        <li><b class="k">ⓑ AI 에이전트</b> — 하나만 초록이어도 진화 실행이 가능합니다.
-          미연결이면 [연결 마법사]로.</li>
-        <li><b class="k">ⓒ 데이터 현황</b> — <b>정답지 10개</b>가 진화 실행의 최소 조건.
-          train : holdout 은 자동 분할이며 손댈 수 없습니다(시험 공정성).</li>
+        <li><b class="k">ⓐ Operations server</b> — the source of sessions, ground truth, and scoring. If red, start the mock:
+          <code>python run_mock_ops.py --port 8101</code> (a stand-in until the real server S5 is done).
+          This console holds no source data, so when this is off the screens only show "connection guidance".</li>
+        <li><b class="k">ⓑ AI agent</b> — evolution can run with even one green.
+          If unconnected, use the [Connection wizard].</li>
+        <li><b class="k">ⓒ Data status</b> — <b>10 ground truths</b> is the minimum to run evolution.
+          The train : holdout split is automatic and untouchable (exam fairness).</li>
       </ul>
-      아래 <b class="k">진화 루프</b> 배지가 IDLE 이 아니면 어떤 세대가 진행 중이라는 뜻 —
-      [진화 실행] 화면에서 이어서 볼 수 있습니다. 금일 실행 수/비용은 일일 상한(설정) 기준입니다.
+      If the <b class="k">evolution loop</b> badge below is not IDLE, a generation is in progress —
+      you can continue on the [Run evolution] screen. Today's run count/cost is measured against the daily limit (Settings).
     </div>
   </details>
 
-  <h2>진화 루프</h2>
+  <h2>Evolution loop</h2>
   <div class="card" id="loop-card"></div>
 
-  <h2>최근 세대</h2>
+  <h2>Recent generations</h2>
   <div class="card" id="recent"></div>
 </main>
 <script src="/static/js/api.js"></script>
@@ -88,8 +88,8 @@
 injectNav('/');
 
 function connCard(title, ok, lines, linkHtml) {
-  const badge = ok === null ? '<span class="badge warn">미확인</span>'
-    : ok ? '<span class="badge ok">연결됨</span>' : '<span class="badge err">연결 안 됨</span>';
+  const badge = ok === null ? '<span class="badge warn">Unchecked</span>'
+    : ok ? '<span class="badge ok">Connected</span>' : '<span class="badge err">Not connected</span>';
   return `<div class="card" style="margin:0"><div class="row" style="justify-content:space-between">
     <b>${esc(title)}</b>${badge}</div>
     <div class="sub" style="margin-top:8px;line-height:1.7">${lines}</div>${linkHtml || ''}</div>`;
@@ -105,51 +105,51 @@ function computeNextAction(d) {
   const L = d.loop.state;
 
   if (!d.ops.ok) return {
-    tag: '1단계 · 서버 연결', title: '운영 서버(데이터 창고)가 꺼져 있어요',
-    desc: `이 콘솔의 모든 데이터(세션·정답지)는 운영 서버에 있습니다. PowerShell 에서 켜 주세요:<br>
+    tag: 'Step 1 · Connect server', title: 'The operations server (data warehouse) is off',
+    desc: `All data in this console (sessions, ground truth) lives on the operations server. Start it in PowerShell:<br>
       <code>cd live-evolution-server\\local</code> → <code>.venv\\Scripts\\python run_mock_ops.py --port 8101</code>`,
     href: null, btn: null };
   if (L === 'REVIEW_DIFF') return {
-    tag: '사람 차례', title: 'AI 제안이 검토를 기다리고 있어요',
-    desc: '변경 내용과 근거를 읽고 [후보 등록] 또는 [폐기]를 결정해 주세요.',
-    href: '/evolve', btn: '제안 검토하러 가기' };
+    tag: 'Your turn', title: 'An AI proposal is waiting for review',
+    desc: 'Read the changes and rationale, then decide [Register candidate] or [Discard].',
+    href: '/evolve', btn: 'Go review the proposal' };
   if (L === 'PASSED') return {
-    tag: '사람 차례', title: '게이트 통과! 채택 여부를 결정해 주세요',
-    desc: '숨겨둔 시험지(시험용 세션) 성적을 확인하고 [채택]하면 새 판정 기준이 즉시 적용됩니다.',
-    href: '/report', btn: '성적표 검토하러 가기' };
+    tag: 'Your turn', title: 'Gate passed! Decide whether to adopt',
+    desc: 'Check the hidden exam (holdout session) score; if you [Adopt], the new decision criteria apply immediately.',
+    href: '/report', btn: 'Go review the gate report' };
   if (['COLLECT', 'PROPOSE', 'REGISTERED', 'EVALUATING'].includes(L)) return {
-    tag: '진행 중', title: `개선 세대가 진행 중이에요 (${L})`,
-    desc: 'AI 제안은 보통 3~8분 걸립니다. 이 화면을 떠나 있어도 계속 진행됩니다.',
-    href: '/evolve', btn: '진행 로그 보기' };
+    tag: 'In progress', title: `An improvement generation is in progress (${L})`,
+    desc: 'AI proposals usually take 3–8 minutes. It keeps going even if you leave this screen.',
+    href: '/evolve', btn: 'View progress log' };
   if (L === 'REJECTED') return {
-    tag: '정리 필요', title: '이번 제안은 게이트에서 기각됐어요 (정상 과정)',
-    desc: '기각 사유는 기록되어 다음 세대의 교훈이 됩니다. [기각 확정]으로 정리해 주세요.',
-    href: '/evolve', btn: '정리하러 가기' };
+    tag: 'Cleanup needed', title: 'This proposal was rejected at the gate (a normal part of the process)',
+    desc: 'The rejection reason is recorded and becomes a lesson for the next generation. Clean up with [Confirm rejection].',
+    href: '/evolve', btn: 'Go clean up' };
   if (L === 'FAILED') return {
-    tag: '정리 필요', title: '실행이 실패했어요 — 원문을 확인해 주세요',
-    desc: 'AI 응답 원문에서 원인을 확인하고 [정리] 후 다시 실행하면 됩니다.',
-    href: '/evolve', btn: '원인 보러 가기' };
+    tag: 'Cleanup needed', title: 'The run failed — check the raw transcript',
+    desc: 'Check the cause in the raw AI response, then [Clean up] and run again.',
+    href: '/evolve', btn: 'Go see the cause' };
   if (!anyAgentOk) return {
-    tag: '1단계 · 최초 설정', title: agentsUnknown ? 'AI 에이전트 상태를 확인해 주세요' : 'AI 에이전트를 연결해 주세요',
-    desc: '개선안을 만들어 줄 도구(Claude Code / Codex)입니다. 한 번 연결하면 계속 유지됩니다.<br>첫 확인은 40초~2분 걸릴 수 있어요.',
-    href: '/agent', btn: '연결 마법사 열기' };
+    tag: 'Step 1 · First-time setup', title: agentsUnknown ? 'Check the AI agent status' : 'Connect an AI agent',
+    desc: 'The tool (Claude Code / Codex) that will produce improvements. Connect once and it stays.<br>The first check can take 40s–2min.',
+    href: '/agent', btn: 'Open connection wizard' };
   if (labeled < 10) return {
-    tag: '2단계 · 데이터 모으기', title: `정답지를 모아 주세요 — 지금 ${labeled}개 / 최소 10개`,
+    tag: 'Step 2 · Gather data', title: `Gather ground truth — ${labeled} so far / 10 minimum`,
     desc: (d.device.ok ? '' :
-      '먼저 기기를 켜세요: <code>web_cam_version_prototype</code> 폴더에서 <code>.venv\\Scripts\\python run.py</code><br>') +
-      '검증 세션(5분)에서 "집중해!"·"멍때려~" 지시하며 버튼을 눌러 정답지 1개를 만듭니다. 하루 2~3회면 며칠 안에 모입니다.',
-    href: '/console', btn: '검증 세션 시작하기' };
+      'First turn on the device: <code>.venv\\Scripts\\python run.py</code> in the <code>web_cam_version_prototype</code> folder<br>') +
+      'In a validation session (5 min), instruct "focus!" / "zone out~" and press the button to make one ground truth. 2–3 a day gathers them within days.',
+    href: '/console', btn: 'Start a validation session' };
   return {
-    tag: '준비 완료', title: `진화를 실행할 수 있어요 (정답지 ${labeled}개)`,
-    desc: '오답노트에서 현재 판정 기준의 약점을 확인하고 AI 개선 제안을 받아 보세요.',
-    href: '/evolve', btn: '🧬 진화 1회 실행하러 가기' };
+    tag: 'Ready', title: `You can run evolution (${labeled} ground truths)`,
+    desc: 'Check the current decision criteria\'s weaknesses in the Mistake Log and get an AI improvement proposal.',
+    href: '/evolve', btn: '🧬 Go run one generation' };
 }
 
 function renderNextAction(d) {
   const a = computeNextAction(d);
   document.getElementById('next-action').innerHTML = `
     <div class="next-action">
-      <div class="tag">▶ 지금 할 일 · ${esc(a.tag)}</div>
+      <div class="tag">▶ Next action · ${esc(a.tag)}</div>
       <div class="title">${esc(a.title)}</div>
       <div class="desc">${a.desc}</div>
       ${a.href ? `<div style="margin-top:12px"><a class="btn" href="${a.href}">${esc(a.btn)}</a></div>` : ''}
@@ -164,19 +164,19 @@ function renderReadiness(d) {
   const agentsUnknown = agents.every((a) => a.installed === null);
   const rows = [
     { ok: d.ops.ok ? 'ok' : 'bad',
-      label: `운영 서버 (세션·${'<i class="term" data-term="truth">정답지</i>'} 창고)`,
-      extra: d.ops.ok ? '연결됨' : '꺼짐 — 위 안내대로 켜 주세요', link: null },
+      label: `Operations server (session &amp; ${'<i class="term" data-term="truth">ground truth</i>'} store)`,
+      extra: d.ops.ok ? 'Connected' : 'Off — start it per the guidance above', link: null },
     { ok: anyAgentOk ? 'ok' : 'no',
-      label: 'AI 에이전트 (개선안 담당)',
-      extra: anyAgentOk ? '연결됨' : (agentsUnknown ? '확인 필요' : '미연결'),
-      link: ['/agent', '마법사'] },
+      label: 'AI agent (owns improvements)',
+      extra: anyAgentOk ? 'Connected' : (agentsUnknown ? 'Check needed' : 'Unconnected'),
+      link: ['/agent', 'Wizard'] },
     { ok: d.device.ok ? 'ok' : 'no',
-      label: `기기 · 웹캠 프로토 (${'<i class="term" data-term="session">검증 세션</i>'} 때만 필요)`,
-      extra: d.device.ok ? '연결됨' : '꺼짐', link: null },
+      label: `Device · webcam proto (needed only for ${'<i class="term" data-term="session">validation sessions</i>'})`,
+      extra: d.device.ok ? 'Connected' : 'Off', link: null },
     { ok: labeled >= 10 ? 'ok' : 'no',
-      label: `<i class="term" data-term="truth">정답지</i> 모으기`,
-      bar: Math.min(1, labeled / 10), extra: `${labeled} / 10개`,
-      link: ['/console', '만들러 가기'] },
+      label: `Gather <i class="term" data-term="truth">ground truth</i>`,
+      bar: Math.min(1, labeled / 10), extra: `${labeled} / 10`,
+      link: ['/console', 'Go make some'] },
   ];
   document.getElementById('readiness').innerHTML = rows.map((r) => `
     <div class="item ${r.ok}">
@@ -196,57 +196,57 @@ async function load() {
 
   const n = document.getElementById('notice');
   n.innerHTML = d.notice ? `<div class="notice-bar">🔔 ${esc(d.notice.msg)}
-      <a href="/evolve" class="btn small" style="margin-left:auto">진화 실행으로</a>
-      <button class="ghost small" onclick="post('/api/notice/clear').then(load)">닫기</button></div>` : '';
+      <a href="/evolve" class="btn small" style="margin-left:auto">To run evolution</a>
+      <button class="ghost small" onclick="post('/api/notice/clear').then(load)">Close</button></div>` : '';
   if (d.consecutive_rejects >= 3) {
-    n.innerHTML += `<div class="notice-bar">⚠ 연속 기각 ${d.consecutive_rejects}세대 —
-      파라미터 튜닝의 한계일 수 있어요. 피처/규칙 재설계(레벨 2) 검토를 권합니다.</div>`;
+    n.innerHTML += `<div class="notice-bar">⚠ ${d.consecutive_rejects} consecutive rejected generations —
+      this may be the limit of parameter tuning. Consider redesigning features/rules (level 2).</div>`;
   }
 
   const ov = d.ops.ok ? d.ops.overview : null;
   const opsLines = d.ops.ok
-    ? `URL: ${esc(d.ops.url)}<br>현재 ${term('paramset', '판정 기준')}: <b>${esc(ov.active_param_set.version)}</b><br>토큰: 유효`
+    ? `URL: ${esc(d.ops.url)}<br>Current ${term('paramset', 'decision criteria')}: <b>${esc(ov.active_param_set.version)}</b><br>Token: valid`
     : `URL: ${esc(d.ops.url)}<br>${esc(d.ops.error)}`;
   const agents = d.agent.agents.map((a) => a.installed === null
-    ? `${esc(a.display)}: <span class="badge warn">미확인</span>`
-    : a.auth_ok ? `${esc(a.display)}: <span class="badge ok">연결됨 v${esc(a.version)}</span>`
-    : `${esc(a.display)}: <span class="badge err">${a.installed ? '미인증' : '미설치'}</span>`).join('<br>');
+    ? `${esc(a.display)}: <span class="badge warn">Unchecked</span>`
+    : a.auth_ok ? `${esc(a.display)}: <span class="badge ok">Connected v${esc(a.version)}</span>`
+    : `${esc(a.display)}: <span class="badge err">${a.installed ? 'Unauthenticated' : 'Not installed'}</span>`).join('<br>');
   const dataLines = ov
-    ? `${term('truth', '정답지')} <b>${ov.labeled_realtime}개</b> · ${term('session', '측정 세션')} ${ov.sessions_total}회<br>` +
-      `${term('train', '연습용')} ${ov.train_labeled} · ${term('holdout', '시험용')} ${ov.holdout_labeled} (자동 배정)<br>` +
-      `마지막 정답지 저장: ${fmtDT(ov.last_label_at)}`
-    : '운영 서버 연결 후 표시됩니다';
+    ? `${term('truth', 'Ground truth')} <b>${ov.labeled_realtime}</b> · ${term('session', 'sessions')} ${ov.sessions_total}<br>` +
+      `${term('train', 'training')} ${ov.train_labeled} · ${term('holdout', 'holdout')} ${ov.holdout_labeled} (auto-assigned)<br>` +
+      `Last ground truth saved: ${fmtDT(ov.last_label_at)}`
+    : 'Shown after connecting to the operations server';
   document.getElementById('cards').innerHTML =
-    connCard('ⓐ 운영 서버', d.ops.ok, opsLines) +
-    connCard('ⓑ AI 에이전트', d.agent.agents.some((a) => a.auth_ok) ? true
+    connCard('ⓐ Operations server', d.ops.ok, opsLines) +
+    connCard('ⓑ AI agent', d.agent.agents.some((a) => a.auth_ok) ? true
       : (d.agent.agents.every((a) => a.installed === null) ? null : false),
-      agents + `<br>기본: ${esc(d.agent.default)}`,
-      `<a href="/agent" class="btn ghost small" style="margin-top:10px;display:inline-block">연결 마법사</a>`) +
-    connCard('ⓒ 데이터 현황', d.ops.ok, dataLines,
-      `<a href="/archive" class="btn ghost small" style="margin-top:10px;display:inline-block">아카이브</a>`);
+      agents + `<br>Default: ${esc(d.agent.default)}`,
+      `<a href="/agent" class="btn ghost small" style="margin-top:10px;display:inline-block">Connection wizard</a>`) +
+    connCard('ⓒ Data status', d.ops.ok, dataLines,
+      `<a href="/archive" class="btn ghost small" style="margin-top:10px;display:inline-block">Archive</a>`);
 
-  const deviceBadge = d.device.ok ? '<span class="badge ok">기기(웹캠) 연결됨</span>'
-    : `<span class="badge warn" title="${esc(d.device.error || '')}">기기 미연결</span>`;
+  const deviceBadge = d.device.ok ? '<span class="badge ok">Device (webcam) connected</span>'
+    : `<span class="badge warn" title="${esc(d.device.error || '')}">Device not connected</span>`;
   document.getElementById('loop-card').innerHTML = `
     <div class="row">
       <span class="badge ${d.loop.state === 'IDLE' ? 'info' : 'warn'}" title="${esc(d.loop.state)}">${esc(loopStateKo(d.loop.state))}</span>
       ${d.loop.gen_id ? `<span class="sub">${esc(d.loop.gen_id)}</span>` : ''}
       ${deviceBadge}
-      <span class="sub" style="margin-left:auto">금일 실행 ${d.today.runs}/${d.today.limit}
-        · 비용 $${d.today.cost_usd}</span>
+      <span class="sub" style="margin-left:auto">Today ${d.today.runs}/${d.today.limit} runs
+        · cost $${d.today.cost_usd}</span>
     </div>
     <div class="row" style="margin-top:12px">
-      <a href="/evolve" class="btn small">진화 1회 실행</a>
-      <a href="/console" class="btn ghost small">검증 세션 콘솔</a>
+      <a href="/evolve" class="btn small">Run one generation</a>
+      <a href="/console" class="btn ghost small">Validation session console</a>
     </div>`;
 
   document.getElementById('recent').innerHTML = d.recent_generations.length
-    ? `<table class="tbl"><tr><th>세대</th><th>버전</th><th>결정</th><th>생성</th></tr>` +
+    ? `<table class="tbl"><tr><th>Generation</th><th>Version</th><th>Decision</th><th>Created</th></tr>` +
       d.recent_generations.map((g) => `<tr class="click" onclick="location='/generations'">
         <td>${esc(g.gen_id)}</td><td>${esc(g.version || '—')}</td>
         <td><span class="badge ${g.status === 'adopted' ? 'ok' : g.status === 'rejected' ? 'err' : 'info'}">${esc(g.status)}</span></td>
         <td class="sub">${fmtDT(g.created_at)}</td></tr>`).join('') + '</table>'
-    : '<p class="sub">아직 실행된 세대가 없습니다 — 정답지 10개가 모이면 진화를 실행할 수 있어요.</p>';
+    : '<p class="sub">No generations have run yet — once 10 ground truths are gathered you can run evolution.</p>';
 }
 load();
 setInterval(load, 15000);

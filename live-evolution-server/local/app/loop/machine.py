@@ -58,15 +58,15 @@ class EvolutionLoop:
         self.state, self.gen_id, self.data = saved["state"], saved["gen_id"], saved["data"]
         if self.state in ("COLLECT", "PROPOSE"):
             # 실행 스레드는 재시작으로 사라졌다 — 정직하게 FAILED 처리 (원문은 agent_runs 에)
-            self._log("서버 재시작으로 세대 실행이 중단되었습니다 — FAILED 처리")
-            self._set("FAILED", error="서버 재시작으로 중단")
+            self._log("Generation run interrupted by server restart — marked FAILED")
+            self._set("FAILED", error="Interrupted by server restart")
             if self.gen_id:
                 db.upsert_proposal(self.gen_id, status="failed",
-                                   reject_reason="서버 재시작으로 중단")
+                                   reject_reason="Interrupted by server restart")
         elif self.state == "REGISTERED":
             self._start_thread(self._evaluate_worker)
         elif self.state == "EVALUATING":
-            self._log("서버 재시작 — evaluate 폴링 재개")
+            self._log("Server restart — resuming evaluate polling")
             self._start_thread(self._poll_worker)
 
     def _set(self, state: str, **data_updates):
@@ -103,18 +103,18 @@ class EvolutionLoop:
 
     def can_run(self) -> tuple[bool, str]:
         if self.state not in ("IDLE",):
-            return False, f"진행 중인 세대가 있습니다 (상태: {self.state}) — 완료/정리 후 실행하세요."
+            return False, f"A generation is in progress (state: {self.state}) — finish/clean up before running."
         limit = db.get_setting("daily_run_limit", get_config().daily_run_limit)
         if db.runs_today("propose") >= int(limit):
-            return False, f"일일 실행 상한({limit}회)에 도달했습니다."
+            return False, f"Daily run limit ({limit}) reached."
         try:
             ov = get_ops().overview()
         except OpsError as e:
             return False, e.user_msg
         labeled = int(ov.get("labeled_realtime", 0))
         if labeled < MIN_LABELED_SESSIONS:
-            return False, (f"라벨 세션이 부족합니다 ({labeled}/{MIN_LABELED_SESSIONS}) — "
-                           "검증 세션 콘솔에서 정답지를 더 만들어 주세요.")
+            return False, (f"Not enough labeled sessions ({labeled}/{MIN_LABELED_SESSIONS}) — "
+                           "make more ground truth in the validation session console.")
         return True, ""
 
     def estimate(self) -> dict:
@@ -135,14 +135,14 @@ class EvolutionLoop:
             raise RuntimeError(reason)
         with self._lock:
             if self.state != "IDLE":   # 가드 통과 후 경합 재확인 (동시 1개 원칙)
-                raise RuntimeError(f"진행 중인 세대가 있습니다 (상태: {self.state})")
+                raise RuntimeError(f"A generation is in progress (state: {self.state})")
             agent_name = agent_name or db.get_setting("agent_default", get_config().agent_default)
             gen_seq = len([p for p in db.list_proposals(limit=1000)]) + 1
             self.gen_id = dt.datetime.now().strftime("gen%Y%m%d_%H%M%S")
             self.data = {"agent": agent_name, "auto": auto, "gen_seq": gen_seq, "log": []}
             self._set("COLLECT")
         db.upsert_proposal(self.gen_id, created_at=_now(), agent=agent_name, status="collecting")
-        self._log(f"세대 {self.gen_id} 시작 (에이전트: {agent_name}, 자동모드: {auto})")
+        self._log(f"Generation {self.gen_id} started (agent: {agent_name}, auto: {auto})")
         self._start_thread(self._run_worker)
         return {"gen_id": self.gen_id}
 
@@ -155,7 +155,7 @@ class EvolutionLoop:
             self._collect_and_propose()
         except Exception:
             err = traceback.format_exc(limit=5)
-            self._log(f"예기치 못한 오류: {err.splitlines()[-1]}")
+            self._log(f"Unexpected error: {err.splitlines()[-1]}")
             self._set("FAILED", error=err)
             if self.gen_id:
                 db.upsert_proposal(self.gen_id, status="failed", reject_reason=err.splitlines()[-1])
@@ -163,25 +163,25 @@ class EvolutionLoop:
     def _collect_and_propose(self):
         ops = get_ops()
         cfg = get_config()
-        self._log("오답노트·현황 수집 중 (운영 서버 GET)…")
+        self._log("Collecting Mistake Log and status (operations server GET)…")
         try:
             ev = evidence_mod.build_evidence(ops)
         except OpsError as e:
-            self._log(f"수집 실패: {e.user_msg}")
+            self._log(f"Collection failed: {e.user_msg}")
             self._set("FAILED", error=e.user_msg)
             db.upsert_proposal(self.gen_id, status="failed", reject_reason=e.user_msg)
             return
         meta = ev["meta"]
         self.data["active_param_set"] = meta["active_param_set"]
         self.data["failure_modes"] = meta["failure_modes"]
-        self._log(f"Evidence: train {meta['n_train_sessions']}세션 / bins {meta['n_train_bins']} / "
-                  f"실패 모드 {meta['failure_modes']} / 활성 {meta['active_param_set']['version']}")
+        self._log(f"Evidence: train {meta['n_train_sessions']} sessions / bins {meta['n_train_bins']} / "
+                  f"failure modes {meta['failure_modes']} / active {meta['active_param_set']['version']}")
 
         agent_name = self.data["agent"]
         adapter = get_adapter(agent_name)
         auth = adapter.check_auth()   # 실행 직전 항상 재확인 (SPEC-01 §2)
         if not auth.ok:
-            msg = f"에이전트({agent_name}) 인증 실패: {auth.detail}"
+            msg = f"Agent ({agent_name}) auth failed: {auth.detail}"
             self._log(msg)
             self._set("FAILED", error=msg)
             db.upsert_proposal(self.gen_id, status="failed", reject_reason=msg)
@@ -194,7 +194,7 @@ class EvolutionLoop:
         feedback = ""
         for attempt in range(1, MAX_ATTEMPTS + 1):
             self._set("PROPOSE", attempt=attempt)
-            self._log(f"에이전트 실행 {attempt}/{MAX_ATTEMPTS} (타임아웃 {int(timeout)}s)…")
+            self._log(f"Agent run {attempt}/{MAX_ATTEMPTS} (timeout {int(timeout)}s)…")
             ws = workspace_mod.create_workspace(self.gen_id, ev, feedback=feedback)
             self.data["workspace"] = str(ws)
             started = _now()
@@ -209,31 +209,31 @@ class EvolutionLoop:
                 ok=1 if out.ok else 0, error=out.error)
             self.data.setdefault("agent_run_ids", []).append(run_id)
             if not out.ok:
-                self._log(f"에이전트 실패: {out.error}")
+                self._log(f"Agent failed: {out.error}")
                 feedback = f"- 이전 시도가 실패했다: {out.error}\n- output/proposal.json 파일 저장을 잊지 마라."
                 continue
-            self._log(f"제안 수거 ({out.proposal_source}) — 4중 검증 중…")
+            self._log(f"Proposal collected ({out.proposal_source}) — running 4-stage validation…")
             vr = validate_proposal(out.proposal, current_params, tb, history, workspace=ws)
             db.upsert_proposal(self.gen_id,
                                proposal_json=json.dumps(out.proposal, ensure_ascii=False),
                                validation_json=json.dumps(vr.to_dict(), ensure_ascii=False))
             if vr.ok:
                 for w in vr.warnings:
-                    self._log(f"경고: {w}")
-                self._log(f"검증 통과 (4단계 재계산 대조 포함) — 변경 {len(out.proposal['changes'])}건")
+                    self._log(f"Warning: {w}")
+                self._log(f"Validation passed (incl. stage-4 recomputation cross-check) — {len(out.proposal['changes'])} changes")
                 db.upsert_proposal(self.gen_id, status="proposed")
                 self._set("REVIEW_DIFF")
                 if self.data.get("auto"):
-                    self._log("자동 제안 모드 — diff 검토를 건너뛰고 후보 등록 진행 "
-                              "(채택은 언제나 수동)")
+                    self._log("Auto-propose mode — skipping diff review and registering candidate "
+                              "(adoption is always manual)")
                     if self._claim_registration():
                         self._register_inner()
                 return
-            self._log(f"검증 실패 (단계 {vr.stage}): " + " / ".join(vr.errors[:4]))
+            self._log(f"Validation failed (stage {vr.stage}): " + " / ".join(vr.errors[:4]))
             feedback = ("- 직전 제안이 검증 " + str(vr.stage) + "단계에서 기각되었다:\n"
                         + "\n".join(f"  * {e}" for e in vr.errors[:8])
                         + "\n- 위 사유를 전부 해소한 제안을 다시 제출하라.")
-        msg = f"{MAX_ATTEMPTS}회 시도 모두 실패 — 세대 FAILED (원문은 agent_runs 에 보존)"
+        msg = f"All {MAX_ATTEMPTS} attempts failed — generation FAILED (raw transcript preserved in agent_runs)"
         self._log(msg)
         self._set("FAILED", error=msg)
         db.upsert_proposal(self.gen_id, status="failed", reject_reason=msg)
@@ -255,8 +255,8 @@ class EvolutionLoop:
     def register(self) -> dict:
         if not self._claim_registration():
             raise RuntimeError(
-                f"후보 등록을 시작할 수 없습니다 (상태: {self.state}"
-                f"{', 이미 등록 진행 중' if self.data.get('registering') else ''})")
+                f"Cannot start candidate registration (state: {self.state}"
+                f"{', already registering' if self.data.get('registering') else ''})")
         self._start_thread(self._register_worker)
         return {"gen_id": self.gen_id}
 
@@ -276,14 +276,14 @@ class EvolutionLoop:
         gen_seq = self.data.get("gen_seq", 1)
         version = f"v1.{gen_seq}-gen{gen_seq}"
         parent = self.data.get("active_param_set", {}).get("id")
-        self._log(f"후보 등록: POST param_sets ({version}, parent={parent})")
+        self._log(f"Registering candidate: POST param_sets ({version}, parent={parent})")
         try:
             res = ops.param_sets_post(
                 json_params=proposal["new_params"], origin="agent",
                 agent_name=self.data.get("agent", "?"),
                 rationale=proposal.get("rationale", ""), parent_id=parent, version=version)
         except OpsError as e:
-            self._log(f"등록 실패: {e.user_msg}")
+            self._log(f"Registration failed: {e.user_msg}")
             self._set("FAILED", error=e.user_msg)
             db.upsert_proposal(self.gen_id, status="failed", reject_reason=e.user_msg)
             return
@@ -297,13 +297,13 @@ class EvolutionLoop:
         ops = get_ops()
         pid = self.data.get("param_set_id") or (db.get_proposal(self.gen_id) or {}).get("param_set_id")
         if not pid:
-            self._set("FAILED", error="param_set_id 없음")
+            self._set("FAILED", error="param_set_id missing")
             return
-        self._log("evaluate 요청 (train+holdout 재채점 → 게이트 판정은 운영 서버가)…")
+        self._log("evaluate request (re-score train+holdout → gate decided by the operations server)…")
         try:
             job = ops.evaluate(pid)
         except OpsError as e:
-            self._log(f"evaluate 실패: {e.user_msg}")
+            self._log(f"evaluate failed: {e.user_msg}")
             self._set("FAILED", error=e.user_msg)
             db.upsert_proposal(self.gen_id, status="failed", reject_reason=e.user_msg)
             return
@@ -317,14 +317,14 @@ class EvolutionLoop:
         t0 = time.monotonic()
         while True:
             if time.monotonic() - t0 > POLL_TIMEOUT_SEC:
-                self._log("evaluate 잡 대기 시간 초과")
-                self._set("FAILED", error="evaluate 잡 대기 시간 초과")
-                db.upsert_proposal(self.gen_id, status="failed", reject_reason="evaluate 타임아웃")
+                self._log("evaluate job wait timed out")
+                self._set("FAILED", error="evaluate job wait timed out")
+                db.upsert_proposal(self.gen_id, status="failed", reject_reason="evaluate timeout")
                 return
             try:
                 jobs = ops.jobs()
             except OpsError as e:
-                self._log(f"잡 조회 실패(재시도 예정): {e.user_msg}")
+                self._log(f"Job query failed (will retry): {e.user_msg}")
                 time.sleep(POLL_SEC)
                 continue
             mine = [j for j in jobs if j.get("job_id") == job_id or
@@ -333,8 +333,8 @@ class EvolutionLoop:
             if st in ("done", None):
                 break
             if st == "failed":
-                msg = mine[0].get("error", "evaluate 잡 실패")
-                self._log(f"evaluate 실패: {msg}")
+                msg = mine[0].get("error", "evaluate job failed")
+                self._log(f"evaluate failed: {msg}")
                 self._set("FAILED", error=msg)
                 db.upsert_proposal(self.gen_id, status="failed", reject_reason=msg)
                 return
@@ -342,7 +342,7 @@ class EvolutionLoop:
         try:
             report = ops.report(pid)
         except OpsError as e:
-            self._log(f"성적표 조회 실패: {e.user_msg}")
+            self._log(f"Gate report query failed: {e.user_msg}")
             self._set("FAILED", error=e.user_msg)
             return
         passed = bool(report.get("gate", {}).get("passed"))
@@ -350,7 +350,7 @@ class EvolutionLoop:
         db.upsert_proposal(self.gen_id, status=verdict, verdict=verdict,
                            report_json=json.dumps(report, ensure_ascii=False),
                            reject_reason=None if passed else report.get("gate", {}).get("notes"))
-        self._log(f"게이트 판정: {'통과 — 성적표 검토 후 [채택] 가능' if passed else '기각'}")
+        self._log(f"Gate decision: {'passed — review the gate report then [Adopt]' if passed else 'rejected'}")
         self._set("PASSED" if passed else "REJECTED")
         # 자동 모드도 여기서 반드시 정지 — ADOPTED 로 가는 문은 사람의 [채택] 버튼뿐.
 
@@ -360,12 +360,12 @@ class EvolutionLoop:
         """폐기/기각 확정/실패 정리 → IDLE. (REVIEW_DIFF 폐기 포함)"""
         with self._lock:
             if self.state not in ("REVIEW_DIFF", "PASSED", "REJECTED", "FAILED"):
-                raise RuntimeError(f"현재 상태({self.state})에서는 정리할 수 없습니다")
+                raise RuntimeError(f"Cannot clean up in the current state ({self.state})")
             if self.gen_id:
                 status = {"REVIEW_DIFF": "dismissed", "PASSED": "passed",
                           "REJECTED": "rejected", "FAILED": "failed"}[self.state]
                 db.upsert_proposal(self.gen_id, status=status, human_note=note or None)
-            self._log("세대 정리 → IDLE")
+            self._log("Generation cleaned up → IDLE")
             self._set("IDLE")
 
     def mark_adopted(self, param_set_id: str) -> None:
@@ -376,7 +376,7 @@ class EvolutionLoop:
                     db.upsert_proposal(p["gen_id"], status="adopted", verdict="adopted")
                     break
             if self.state == "PASSED":
-                self._log("채택 완료 — 다음 세대 준비 (새 오답노트는 새 기준으로 다시 계산됨)")
+                self._log("Adoption done — preparing next generation (the new Mistake Log is recomputed with the new criteria)")
                 self._set("IDLE")
 
     def mark_rolled_back(self, param_set_id: str) -> None:

@@ -7,8 +7,8 @@ from __future__ import annotations
 
 MAX_DROP = 0.02
 
-GATE_RULE = ("holdout 모든 상태 sens·spec 이 baseline 대비 -2%p 이내 저하 "
-             "& 최소 1개 지표 개선")
+GATE_RULE = ("All holdout states' sensitivity/specificity drop within -2%p vs baseline "
+             "& at least 1 metric improves")
 
 
 def evaluate_gate(baseline: dict, candidate: dict, max_drop: float = MAX_DROP,
@@ -31,12 +31,12 @@ def evaluate_gate(baseline: dict, candidate: dict, max_drop: float = MAX_DROP,
             delta = c - b
             if delta < -max_drop:
                 passed = False
-                notes.append(f"{st}.{metric} 저하 {round(-delta * 100, 1)}%p (> {max_drop * 100:.0f}%p)")
+                notes.append(f"{st}.{metric} drop {round(-delta * 100, 1)}%p (> {max_drop * 100:.0f}%p)")
             elif delta > 1e-9 and st in check_states:
                 improved = True
-                notes.append(f"{st}.{metric} {b:.3f}→{c:.3f} 개선")
+                notes.append(f"{st}.{metric} {b:.3f}→{c:.3f} improved")
     if not improved:
         passed = False
-        notes.append(f"표적 상태({'/'.join(check_states)}) 개선 없음")
+        notes.append(f"Target states ({'/'.join(check_states)}) show no improvement")
     return {"rule": GATE_RULE, "passed": passed, "targets": check_states,
-            "notes": "; ".join(notes) if notes else "통과"}
+            "notes": "; ".join(notes) if notes else "Passed"}

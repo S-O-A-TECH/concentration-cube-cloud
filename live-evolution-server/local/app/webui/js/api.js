@@ -1,7 +1,7 @@
 /* 공용 헬퍼 — 웹캠 프로토 webui/js/api.js 이식 + live-evolution 확장
    (상태 표기·타임라인 렌더러는 여기서만 정의 — 전 화면 공용) */
 const STATE_LABEL = {
-  focus: '집중', off_task: '이탈', blank_stare: '멍때림', invalid: '측정 낮음',
+  focus: 'Focus', off_task: 'Off-task', blank_stare: 'Blank stare', invalid: 'Low signal',
 };
 const STATE_CLASS = {
   focus: 'st-focus', off_task: 'st-off_task',
@@ -12,7 +12,7 @@ async function api(path, opts) {
   const res = await fetch(path, opts);
   if (res.status === 401 && !location.pathname.startsWith('/login')) {
     location.href = '/login';
-    throw new Error('로그인이 필요합니다');
+    throw new Error('Login required');
   }
   if (!res.ok) {
     let detail = res.statusText;
@@ -31,7 +31,7 @@ const qs = (k) => new URLSearchParams(location.search).get(k);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtMMSS = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const fmtT = (s) => (s >= 60 ? `${Math.floor(s / 60)}분 ${Math.round(s % 60)}초` : `${Math.round(s)}초`);
+const fmtT = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.round(s)}s`);
 /* 일시 표기 표준: YYYY-MM-DD HH:MM (SPEC-03 공통 규칙) */
 const fmtDT = (iso) => (iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : '—');
 const pct = (v) => (v == null ? '—' : (v * 100).toFixed(1) + '%');
@@ -57,38 +57,38 @@ function renderLegend(el) {
 /* ── 용어 사전 (전 화면 공용) — 점선 밑줄 용어를 클릭하면 뜻이 뜬다 ──
    HTML 쪽 사용법: <i class="term" data-term="holdout">시험용</i> */
 const TERMS = {
-  session: ['세션 (측정 1회)',
-    '[시작]부터 종료까지 기기가 눈 움직임을 기록한 "한 판"입니다. 검증 세션은 5분(LAB-5)짜리로 짧게 여러 번 합니다.'],
-  truth: ['정답지 (= 라벨)',
-    '측정 중 관리자가 "지금 실제 상태"를 버튼으로 기록한 것. 예: "집중해!"라고 지시하며 [집중]을 누른 기록. 기계 판정을 채점하는 기준이 되며, 저장 후에는 수정할 수 없습니다(세션당 1회).'],
-  train: ['연습용 (train)',
-    'AI에게 보여주는 정답지 묶음. AI는 이것만 보고 개선안을 연습합니다. 어느 세션이 연습용이 될지는 자동 배정되며 사람이 고를 수 없습니다.'],
-  holdout: ['시험용 (holdout)',
-    'AI에게 절대 보여주지 않는 정답지 묶음(전체의 약 1/4, 자동 배정). 개선안의 "진짜 실력"은 이 숨겨둔 시험지 점수로 판단합니다 — 연습 문제만 잘 푸는 개선안(과적합)을 걸러내는 장치.'],
-  paramset: ['판정 기준 (param_set)',
-    '집중/이탈/멍때림을 가르는 숫자들의 묶음(임계값·가중치). 진화가 개선하는 대상이며 v1.0 → v1.1-gen1… 버전으로 관리됩니다.'],
-  generation: ['세대 (개선 시도 1회)',
-    '증거 수집 → AI 제안 → 게이트 시험 → 채택/기각까지 한 바퀴. 기각된 세대도 기록으로 남아 다음 세대의 교훈이 됩니다.'],
-  gate: ['게이트 (자동 합격선)',
-    '채택 후보가 되기 위한 시험. 시험용(holdout) 세션에서 어떤 상태도 2%p 넘게 나빠지지 않으면서, 고치려던 상태는 좋아져야 통과합니다. 판정은 운영 서버가 합니다.'],
-  sens: ['민감도 (잡아내는 비율)',
-    '실제로 그 상태였던 구간 중, 기계도 그 상태로 판정한 비율. 예: 멍때림 민감도 60% = 실제 멍때림 10번 중 6번만 잡아냄(4번은 놓침).'],
-  spec: ['특이도 (오인하지 않는 비율)',
-    '그 상태가 아니었던 구간 중, 기계도 아니라고 본 비율. 낮으면 "아닌데 그렇다고 우기는" 오탐이 많다는 뜻.'],
-  bin: ['10초 구간 (bin)',
-    '채점의 최소 단위. 5분 세션은 30개 구간으로 잘라 구간마다 정답지와 기계 판정을 비교합니다.'],
-  mistake: ['오답',
-    '정답지와 기계 판정이 어긋난 10초 구간. 오답이 모인 것이 오답노트이고, AI가 받는 개선 증거의 핵심입니다.'],
-  adopt: ['채택 (promote)',
-    '게이트를 통과한 개선안을 실제 판정 기준으로 확정하는 "사람의 결정". 채택하면 과거 세션 전체가 새 기준으로 다시 채점되고 즉시 적용됩니다. 세대 이력에서 [롤백]으로 되돌릴 수 있습니다.'],
-  exclude: ['연구 제외',
-    '실수한 세션을 평가 대상에서만 빼는 것. 삭제가 아니라서 언제든 복원할 수 있고, 원본 신호와 정답지는 영구 보존됩니다.'],
-  agent: ['AI 에이전트',
-    '이 PC에 로그인된 Claude Code/Codex CLI. 오답 증거를 읽고 판정 기준 개선안을 만들어 주는 "도구"이며, 제안까지만 합니다 — 채택은 언제나 사람.'],
-  labeler: ['기록자 (labeler)',
-    '정답지 버튼을 누른 사람. 임상에서 복수 연구원이 참여할 때 누가 기록했는지 구분하기 위한 항목입니다.'],
-  coverage: ['측정 낮음 (invalid)',
-    '얼굴/시선을 못 읽은 구간. 이탈로 세지 않고 채점에서 제외합니다 — "측정 실패 ≠ 딴짓" 원칙.'],
+  session: ['Session (one measurement)',
+    'One "take" where the device recorded eye movement from [Start] to the end. Validation sessions are short 5-minute (LAB-5) takes, done many times.'],
+  truth: ['Ground truth (= labels)',
+    'What the administrator recorded with a button as "the actual state right now" during measurement. E.g. pressing [Focus] while instructing "focus now". It is the basis for scoring the machine\'s judgment, and cannot be edited after saving (once per session).'],
+  train: ['Training set (train)',
+    'The bundle of ground-truth labels shown to the AI. The AI practices its proposals on this alone. Which sessions become training is assigned automatically — a human cannot choose.'],
+  holdout: ['Holdout set (holdout)',
+    'The bundle of ground-truth labels never shown to the AI (about 1/4 of the total, auto-assigned). A proposal\'s "real ability" is judged by this hidden exam score — a device that filters out proposals that only ace the practice problems (overfitting).'],
+  paramset: ['Decision criteria (param_set)',
+    'The bundle of numbers (thresholds/weights) that separate focus/off-task/blank-stare. This is what evolution improves, versioned as v1.0 → v1.1-gen1…'],
+  generation: ['Generation (one improvement attempt)',
+    'One full loop: evidence collection → AI proposal → gate exam → adopt/reject. Rejected generations are also kept on record as lessons for the next generation.'],
+  gate: ['Gate (automatic pass line)',
+    'The exam a candidate must pass to become adoptable. It passes if, on the holdout sessions, no state degrades by more than 2%p while the state being fixed improves. The operations server makes the call.'],
+  sens: ['Sensitivity (catch rate)',
+    'Of the bins that were actually in that state, the fraction the machine also judged to be in it. E.g. blank-stare sensitivity 60% = of 10 real blank-stares it catches only 6 (misses 4).'],
+  spec: ['Specificity (non-misjudgment rate)',
+    'Of the bins that were NOT in that state, the fraction the machine also judged as not. Low means many false alarms — "insisting it is when it isn\'t".'],
+  bin: ['10-second bin (bin)',
+    'The smallest unit of scoring. A 5-minute session is cut into 30 bins, and each bin compares ground truth against the machine\'s judgment.'],
+  mistake: ['Mistake',
+    'A 10-second bin where ground truth and the machine\'s judgment disagree. Collected mistakes form the Mistake Log, the core improvement evidence the AI receives.'],
+  adopt: ['Adopt (promote)',
+    'The "human decision" to confirm a gate-passed proposal as the actual decision criteria. On adoption, all past sessions are re-scored with the new criteria and it applies immediately. It can be undone with [Rollback] in the generation history.'],
+  exclude: ['Exclude from research',
+    'Removing a mistaken session from evaluation only. Not a deletion, so it can be restored anytime, and the raw signal and ground-truth labels are preserved permanently.'],
+  agent: ['AI agent',
+    'A Claude Code/Codex CLI logged in on this PC. A "tool" that reads mistake evidence and produces proposals to improve the decision criteria — it only proposes; adoption is always a human.'],
+  labeler: ['Labeler',
+    'The person who pressed the ground-truth buttons. Used to tell apart who recorded, for clinical settings where multiple researchers take part.'],
+  coverage: ['Low signal (invalid)',
+    'A bin where the face/gaze could not be read. Not counted as off-task and excluded from scoring — the "measurement failure ≠ distraction" principle.'],
 };
 
 function showTerm(key) {
@@ -97,8 +97,8 @@ function showTerm(key) {
   const dlg = document.createElement('dialog');
   dlg.innerHTML = `<h3>${esc(t[0])}</h3><div class="body">${esc(t[1])}</div>
     <div class="row" style="justify-content:space-between">
-      <button class="ghost small" value="all">📖 용어 전체 보기</button>
-      <button class="small" value="ok">닫기</button></div>`;
+      <button class="ghost small" value="all">📖 View all terms</button>
+      <button class="small" value="ok">Close</button></div>`;
   document.body.appendChild(dlg);
   dlg.querySelectorAll('button').forEach((b) => b.onclick = () => {
     dlg.close(); dlg.remove();
@@ -110,12 +110,12 @@ function showTerm(key) {
 function showGlossary() {
   const dlg = document.createElement('dialog');
   dlg.style.maxWidth = '560px';
-  dlg.innerHTML = `<h3>📖 용어 사전</h3>
+  dlg.innerHTML = `<h3>📖 Glossary</h3>
     <div class="body" style="max-height:60vh;overflow-y:auto">` +
     Object.values(TERMS).map(([name, def]) =>
       `<p style="margin-bottom:10px"><b>${esc(name)}</b><br><span class="sub">${esc(def)}</span></p>`
     ).join('') +
-    `</div><div class="row" style="justify-content:flex-end"><button class="small">닫기</button></div>`;
+    `</div><div class="row" style="justify-content:flex-end"><button class="small">Close</button></div>`;
   document.body.appendChild(dlg);
   dlg.querySelector('button').onclick = () => { dlg.close(); dlg.remove(); };
   dlg.showModal();
@@ -130,26 +130,26 @@ const term = (key, text) => `<i class="term" data-term="${key}">${esc(text)}</i>
 
 /* 진화 루프 상태의 한국어 표기 (대시보드·진화 실행 공용) */
 const LOOP_STATE_KO = {
-  IDLE: '대기 중', COLLECT: '① 증거 수집', PROPOSE: '② AI 제안 작성 중',
-  REVIEW_DIFF: '③ 사람 검토 대기', REGISTERED: '④ 후보 등록', EVALUATING: '⑤ 게이트 시험 중',
-  PASSED: '✅ 게이트 통과 — 채택 대기', REJECTED: '기각됨', FAILED: '실패',
+  IDLE: 'Idle', COLLECT: '① Collecting evidence', PROPOSE: '② AI drafting proposal',
+  REVIEW_DIFF: '③ Awaiting human review', REGISTERED: '④ Candidate registered', EVALUATING: '⑤ Gate exam running',
+  PASSED: '✅ Gate passed — awaiting adoption', REJECTED: 'Rejected', FAILED: 'Failed',
 };
 const loopStateKo = (s) => LOOP_STATE_KO[s] || s;
 
 /* 주황 배너 내비게이션 — 운영 콘솔(남색)과 즉시 구별 (SPEC-03) */
 const NAV_ITEMS = [
-  ['/', '대시보드'], ['/console', '검증 세션'], ['/archive', '아카이브'],
-  ['/mistakes', '오답노트'], ['/evolve', '진화 실행'], ['/report', '성적표'],
-  ['/generations', '세대 이력'], ['/agent', '에이전트'], ['/settings', '설정'],
+  ['/', 'Dashboard'], ['/console', 'Validation session'], ['/archive', 'Archive'],
+  ['/mistakes', 'Mistake Log'], ['/evolve', 'Run evolution'], ['/report', 'Gate report'],
+  ['/generations', 'Generations'], ['/agent', 'Agent'], ['/settings', 'Settings'],
 ];
 function injectNav(active) {
   const el = document.createElement('div');
   el.className = 'banner no-print';
-  el.innerHTML = `<span class="brand">🧬 Live Evolution<small>임상 검증 콘솔</small></span>`
+  el.innerHTML = `<span class="brand">🧬 Live Evolution<small>Clinical validation console</small></span>`
     + NAV_ITEMS.map(([p, t]) =>
       `<a href="${p}" class="${p === active ? 'on' : ''}">${t}</a>`).join('')
-    + `<a href="#" id="nav-glossary" title="용어 사전">📖 용어</a>`
-    + `<a href="#" id="nav-logout" title="로그아웃">↩</a>`;
+    + `<a href="#" id="nav-glossary" title="Glossary">📖 Glossary</a>`
+    + `<a href="#" id="nav-logout" title="Logout">↩</a>`;
   document.querySelector('main').prepend(el);
   el.querySelector('#nav-glossary').onclick = (e) => { e.preventDefault(); showGlossary(); };
   el.querySelector('#nav-logout').onclick = async (e) => {
@@ -160,12 +160,12 @@ function injectNav(active) {
 }
 
 /* 확인 모달 — 모든 파괴적 버튼은 이걸 거친다 (SPEC-03 공통 규칙) */
-function confirmModal({ title, body, confirmText = '확인', danger = false }) {
+function confirmModal({ title, body, confirmText = 'Confirm', danger = false }) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.innerHTML = `<h3>${esc(title)}</h3><div class="body">${body}</div>
       <div class="row" style="justify-content:flex-end">
-        <button class="ghost" value="no">취소</button>
+        <button class="ghost" value="no">Cancel</button>
         <button class="${danger ? 'danger' : ''}" value="yes">${esc(confirmText)}</button>
       </div>`;
     document.body.appendChild(dlg);
@@ -177,13 +177,13 @@ function confirmModal({ title, body, confirmText = '확인', danger = false }) {
 }
 
 /* 사유 입력 모달 — 제외/복원/폐기 등 audit 사유가 필수인 동작용 */
-function promptModal({ title, body, placeholder = '사유 (필수)', confirmText = '확인', danger = false }) {
+function promptModal({ title, body, placeholder = 'Reason (required)', confirmText = 'Confirm', danger = false }) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.innerHTML = `<h3>${esc(title)}</h3><div class="body">${body || ''}</div>
       <input type="text" id="pm-input" placeholder="${esc(placeholder)}" style="margin-bottom:14px">
       <div class="row" style="justify-content:flex-end">
-        <button class="ghost" value="no">취소</button>
+        <button class="ghost" value="no">Cancel</button>
         <button class="${danger ? 'danger' : ''}" value="yes">${esc(confirmText)}</button>
       </div>`;
     document.body.appendChild(dlg);

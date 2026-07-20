@@ -1,60 +1,60 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>성적표 — Live Evolution</title>
+<title>Gate report — Live Evolution</title>
 <link rel="stylesheet" href="/static/css/app.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
 </head>
 <body>
 <main>
-  <h1>성적표 — 게이트 결과 검토</h1>
-  <p class="sub">채택 버튼이 있는 유일한 곳. 높을수록 좋음 · <span class="delta-up">개선 초록</span> / <span class="delta-down">악화 빨강</span></p>
+  <h1>Gate report — review the gate result</h1>
+  <p class="sub">The only place with the Adopt button. Higher is better · <span class="delta-up">green = improved</span> / <span class="delta-down">red = worse</span></p>
   <details class="help">
-    <summary>이 화면 사용법 — 사람이 결정하는 곳</summary>
+    <summary>How to use this screen — where a human decides</summary>
     <div class="body">
-      <h4>표 두 개의 의미</h4>
+      <h4>What the two tables mean</h4>
       <ul>
-        <li><b class="k">train (연습장)</b> — AI 가 보고 연습한 데이터의 성적. 여기가 좋은 건 당연할 수 있음.</li>
-        <li><b class="k">holdout (진짜 시험지)</b> — AI 가 <b>한 번도 못 본</b> 데이터의 성적.
-          <span class="warn">채택 판단은 이쪽을 보세요.</span> train 만 좋고 holdout 이 나쁘면 과적합입니다.</li>
-        <li>각 칸은 <b>before → after</b> (현재 기준 → 후보 적용 시). 높을수록 좋음.</li>
+        <li><b class="k">train (practice)</b> — the score on data the AI saw and practiced on. Good scores here can be expected.</li>
+        <li><b class="k">holdout (the real exam)</b> — the score on data the AI has <b>never seen</b>.
+          <span class="warn">Base your adoption decision on this side.</span> Good on train but bad on holdout means overfitting.</li>
+        <li>Each cell is <b>before → after</b> (current criteria → with the candidate applied). Higher is better.</li>
       </ul>
-      <h4>게이트 배지</h4>
+      <h4>Gate badge</h4>
       <ul>
-        <li>규칙: holdout 의 모든 상태가 -2%p 이내 저하 & 표적 상태 개선 — 운영 서버가 판정합니다.</li>
-        <li><b class="k">통과</b>일 때만 [채택] 버튼이 켜집니다 (미통과 채택은 서버도 409 로 거부 — 이중 방어).</li>
+        <li>Rule: all holdout states degrade within -2%p & the target state improves — the operations server decides.</li>
+        <li>The [Adopt] button turns on only when <b class="k">passed</b> (the server also rejects a non-passed adoption with 409 — double defense).</li>
       </ul>
-      <h4>[채택]을 누르면</h4>
+      <h4>When you press [Adopt]</h4>
       <ul>
-        <li>전 세션이 새 기준으로 재채점되고, 해석 기준이 <b>즉시</b> 바뀝니다.</li>
-        <li>되돌리고 싶으면 <a href="/generations">세대 이력</a>에서 [롤백] — 2번 클릭이면 원복됩니다.</li>
-        <li>기각(REJECTED)은 실패가 아닙니다 — 사유가 기록되어 다음 세대의 입력이 됩니다.</li>
+        <li>All sessions are re-scored with the new criteria, and the interpretation criteria change <b>immediately</b>.</li>
+        <li>To undo, use [Rollback] in the <a href="/generations">generation history</a> — two clicks reverts it.</li>
+        <li>A rejection (REJECTED) is not a failure — the reason is recorded and becomes input for the next generation.</li>
       </ul>
     </div>
   </details>
   <div class="card">
     <div class="row">
-      <div><label class="fld">후보 <i class="term" data-term="paramset">판정 기준</i></label><select id="ps"></select></div>
+      <div><label class="fld">Candidate <i class="term" data-term="paramset">decision criteria</i></label><select id="ps"></select></div>
       <span id="gate-badge" style="align-self:flex-end"></span>
     </div>
   </div>
   <div class="grid2">
     <div class="card" style="margin:0">
-      <h2 style="margin-top:0"><i class="term" data-term="train">연습용 (train)</i> — AI가 보고 연습한 것</h2>
+      <h2 style="margin-top:0"><i class="term" data-term="train">Training set (train)</i> — what the AI saw and practiced on</h2>
       <div class="scroll-x"><table class="tbl" id="train"></table></div>
     </div>
     <div class="card" style="margin:0">
-      <h2 style="margin-top:0"><i class="term" data-term="holdout">시험용 (holdout)</i> — AI가 못 본 진짜 시험지 ★판단 기준</h2>
+      <h2 style="margin-top:0"><i class="term" data-term="holdout">Holdout set (holdout)</i> — the real exam the AI never saw ★decision basis</h2>
       <div class="scroll-x"><table class="tbl" id="holdout"></table></div>
     </div>
   </div>
   <div class="card">
     <div class="kv" id="gate-info"></div>
     <div class="row" style="margin-top:14px">
-      <button id="btn-promote" disabled>✅ 채택 — 전 세션 재채점 + 새 기준 즉시 적용</button>
-      <button id="btn-reject" class="danger ghost" disabled>기각 확정</button>
+      <button id="btn-promote" disabled>✅ Adopt — re-score all sessions + apply new criteria immediately</button>
+      <button id="btn-reject" class="danger ghost" disabled>Confirm rejection</button>
     </div>
     <div id="job-progress" class="sub" style="margin-top:10px"></div>
   </div>
@@ -74,7 +74,7 @@ function metricTable(el, block) {
     const cls = d > 0.0005 ? 'delta-up' : d < -0.0005 ? 'delta-down' : '';
     return `<td class="num">${pct(m.before)} → <span class="${cls}">${pct(m.after)}</span></td>`;
   };
-  el.innerHTML = `<tr><th>상태</th><th>${term('sens', '민감도')} 현재→후보</th><th>${term('spec', '특이도')} 현재→후보</th></tr>` +
+  el.innerHTML = `<tr><th>State</th><th>${term('sens', 'Sensitivity')} current→candidate</th><th>${term('spec', 'Specificity')} current→candidate</th></tr>` +
     states.map((s) => {
       const m = (block?.per_state || {})[s] || {};
       return `<tr><td><i class="${STATE_CLASS[s]}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px"></i>${STATE_LABEL[s]}</td>${cell(m.sens)}${cell(m.spec)}</tr>`;
@@ -89,7 +89,7 @@ async function loadSets() {
   document.getElementById('ps').innerHTML = cands.length
     ? cands.map((p) => `<option value="${esc(p.id)}" ${p.id === want ? 'selected' : ''}>
         ${esc(p.version)} · ${esc(p.status)}</option>`).join('')
-    : '<option value="">후보 없음 — 진화를 먼저 실행하세요</option>';
+    : '<option value="">No candidates — run evolution first</option>';
   if (cands.length) await load();
 }
 
@@ -103,20 +103,20 @@ async function load() {
   curReport = rep;
   const badge = document.getElementById('gate-badge');
   if (!rep) {
-    badge.innerHTML = '<span class="badge warn">아직 evaluate 되지 않음</span>';
+    badge.innerHTML = '<span class="badge warn">Not evaluated yet</span>';
     metricTable(document.getElementById('train'), null);
     metricTable(document.getElementById('holdout'), null);
     document.getElementById('gate-info').innerHTML = '';
   } else {
     badge.innerHTML = rep.gate.passed
-      ? '<span class="badge ok">게이트 통과</span>'
-      : `<span class="badge err">기각 — ${esc(rep.gate.notes)}</span>`;
+      ? '<span class="badge ok">Gate passed</span>'
+      : `<span class="badge err">Rejected — ${esc(rep.gate.notes)}</span>`;
     metricTable(document.getElementById('train'), rep.train);
     metricTable(document.getElementById('holdout'), rep.holdout);
     document.getElementById('gate-info').innerHTML =
-      `<b>게이트 규칙</b><span>${esc(rep.gate.rule)}</span>
-       <b>판정 메모</b><span>${esc(rep.gate.notes || '—')}</span>
-       <b>baseline</b><span>${esc(rep.baseline_id)} · 평가 ${fmtDT(rep.evaluated_at)}</span>`;
+      `<b>Gate rule</b><span>${esc(rep.gate.rule)}</span>
+       <b>Decision notes</b><span>${esc(rep.gate.notes || '—')}</span>
+       <b>baseline</b><span>${esc(rep.baseline_id)} · evaluated ${fmtDT(rep.evaluated_at)}</span>`;
   }
   // passed 일 때만 [채택] 활성 — 서버(409)와 이중 방어
   document.getElementById('btn-promote').disabled = !(rep && rep.gate.passed && ps.status === 'passed');
@@ -126,24 +126,24 @@ async function load() {
 document.getElementById('btn-promote').onclick = async () => {
   const pid = document.getElementById('ps').value;
   const ps = sets.find((p) => p.id === pid);
-  const ok = await confirmModal({ title: '채택 (promote)', confirmText: '채택합니다', danger: false,
-    body: `<b>${esc(ps.version)}</b> 를 채택하면:<br>· 전 세션이 재채점되고<br>` +
-          '· 새 해석 기준이 <b>즉시</b> 적용됩니다.<br>되돌리려면 세대 이력에서 [롤백] 하세요.' });
+  const ok = await confirmModal({ title: 'Adopt (promote)', confirmText: 'Adopt', danger: false,
+    body: `Adopting <b>${esc(ps.version)}</b> will:<br>· re-score all sessions<br>` +
+          '· apply the new interpretation criteria <b>immediately</b>.<br>To undo, use [Rollback] in the generation history.' });
   if (!ok) return;
   try {
     const r = await post(`/api/param_sets/${encodeURIComponent(pid)}/promote`, { confirm: true });
     document.getElementById('job-progress').textContent =
-      `재채점 완료: ${r.n_rescored}세션 (잡 ${r.rescore_job})`;
-    toast(`채택 완료 — ${r.version} 이 활성 기준이 되었습니다`);
+      `Re-scoring done: ${r.n_rescored} sessions (job ${r.rescore_job})`;
+    toast(`Adopted — ${r.version} is now the active criteria`);
     await loadSets();
   } catch (e) { showErr(e); }
 };
 document.getElementById('btn-reject').onclick = async () => {
   const pid = document.getElementById('ps').value;
-  const reason = await promptModal({ title: '기각 확정', danger: true, confirmText: '기각',
-    body: '기각 사유는 다음 세대의 history 입력이 됩니다.' });
+  const reason = await promptModal({ title: 'Confirm rejection', danger: true, confirmText: 'Reject',
+    body: 'The rejection reason becomes the history input for the next generation.' });
   if (reason == null) return;
-  try { await post(`/api/param_sets/${encodeURIComponent(pid)}/reject`, { reason }); toast('기각 확정'); await loadSets(); }
+  try { await post(`/api/param_sets/${encodeURIComponent(pid)}/reject`, { reason }); toast('Rejection confirmed'); await loadSets(); }
   catch (e) { showErr(e); }
 };
 document.getElementById('ps').onchange = load;
