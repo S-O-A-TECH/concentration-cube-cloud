@@ -124,6 +124,45 @@ openssl rand -hex 24
 - 자가진화 서버 UI: `http://<EIP>:8200` → `.env` 의 `EVO_ADMIN_ID` / `EVO_ADMIN_PW` 로 로그인
 - 운영 서버 health: `http://<EIP>:8100/health`
 
+### 3-6. 데모 데이터 시딩 (자가진화 루프를 돌리려면 필수)
+
+새로 배포한 ECS 의 DB 는 **비어 있다.** 자가진화 엔진은 라벨된 train 세션이 10건 이상
+있어야 학습을 시작하므로, 데모 전에 합성 세션을 채워 넣어야 한다.
+
+```bash
+cd ~/concentration_app/deploy/alibaba
+docker compose -f docker-compose.cloud.yml exec api python tools/seed_demo_sessions.py --sessions 18
+```
+
+18세션이면 70:30 분할에서 train 이 대체로 12~14건 나온다 — 임계 10건에 여유가 있다.
+세션당 5분·3000샘플이라 업로드에 몇 분 걸린다.
+
+인자는 없어도 된다. `EVOLUTION_TOKEN` 과 `DATABASE_URL` 은 compose 가 api 컨테이너에
+이미 주입하고, 기기 시리얼은 `app/db/seed.py` 의 정본을 읽으며, factory_token 은
+평문이 DB 에 남지 않으므로 도구가 직접 재발급한다(해시만 갱신).
+
+먼저 계획만 보려면:
+```bash
+docker compose -f docker-compose.cloud.yml exec api python tools/seed_demo_sessions.py --sessions 18 --dry-run
+```
+
+끝나면 최종 집계와 함께 **종료코드**로 결과를 알린다 — 배포 스크립트에서 그대로 게이트로 쓸 수 있다.
+
+| 종료코드 | 의미 |
+|---|---|
+| 0 | train 라벨이 임계(기본 10) 이상 — 진화 루프 실행 가능 |
+| 2 | train 라벨 부족 — `--sessions` 를 늘려 다시 실행 |
+| 1 | 업로드/라벨 오류 |
+
+재실행해도 안전하다. 매번 새 세션이 생기고, 이미 라벨이 있는 세션은 서버가 409(라벨 불변)로
+막아 `기존유지` 로 집계될 뿐 실패로 세지 않는다.
+
+시딩이 끝나면 진화 서버 UI(`http://<EIP>:8200`)에서 학습을 트리거할 수 있다.
+
+> 이 데이터는 **일부러 v1.0 엔진이 틀리도록** 설계돼 있다. `blank_hard` 구간(시선분산 0.045)은
+> v1.0 임계 `stare_dispersion_th=0.035` 가 focus 로 오분류하지만 정답지에는 `blank_stare` 로
+> 적혀 있다. 이 격차가 자가진화가 좁혀야 할 표적이며, 데모에서 개선 폭이 보이는 이유다.
+
 ---
 
 ## 4. 일상 운영 명령
