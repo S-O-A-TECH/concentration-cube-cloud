@@ -4,6 +4,20 @@ Parents and teachers keep asking the same question — *is this student actually
 
 On top of that measurement pipeline sits the part we care about most: a **self-evolution engine** in which Qwen proposes improvements to the scoring parameters, and every proposal must survive a clinical-style validation gate before a human is allowed to adopt it.
 
+## The two-server design: the product, and the engine that grows it
+
+FocusCube is deliberately split into two servers. The **operations server** is the product — it talks to devices, scores sessions, serves reports to the app. The **evolution server** exists for one purpose only: to make the operations server better. It owns the mistake logs, the generation lineage, the Qwen proposer, and the validation gates, and nothing it produces reaches production except a fully gated parameter set that a human explicitly adopts. The growth engine is a separate system from the thing that grows — so the product stays simple and auditable while the engine iterates on it, generation after generation, with human judgment required only at the final adoption click.
+
+## Where the evidence comes from
+
+The ground truth that drives evolution is not scraped and not opinion. Our team runs an **IRB-approved validation program at a general hospital**, collecting supervised, consented labeled sessions on an ongoing basis — confronting the ethics and safety questions of measuring children's attention head-on rather than around. Every day of collected ground truth becomes fresh evidence for the next generation: a new chance for the engine to be wrong, be caught by the gate, or genuinely improve. Consumers only ever meet the cube; behind it, this daily loop is what the evolution server feeds on.
+
+(For this repository and the public cloud demo, a synthetic seeding tool stands in for clinical data — see `server/local/tools/seed_demo_sessions.py`.)
+
+## An Alibaba-native ecosystem
+
+The hardware, the cloud, and the intelligence live under one roof. The cube is sourced for manufacturing through **Accio, Alibaba's AI sourcing platform**, with PCBA suppliers from the Alibaba ecosystem; the backend runs on **Alibaba Cloud ECS**; the models are **Qwen on Model Studio**. And the AI is not a feature bolted onto the product — it is the background force that evolves the product's own server.
+
 ## Why this is a MemoryAgent
 
 The agent's memory is not a chat log. It is a **versioned lineage of validated scoring parameters, together with the evidence that justified each generation.**
