@@ -70,6 +70,33 @@ Everything downstream is deterministic server code:
 
 The practical consequence: a model that confidently reports an improvement it did not achieve cannot get past step 2, and a model that genuinely improves the training split but overfits cannot get past step 3.
 
+## A measured generation
+
+Not a design sketch — this is the first generation driven by Qwen end to end, against a live deployment. We seeded synthetic LAB-5 sessions engineered so that blank staring falls just outside the current dispersion threshold and is therefore misread as focus, then ran one generation. Total elapsed time from `COLLECT` to `PASSED`: **2 minutes 10 seconds.**
+
+`qwen3.7-max` proposed two changes:
+
+```json
+[{"key": "blank_stare.stare_dispersion_th",   "from": 0.035, "to": 0.055},
+ {"key": "blank_stare.max_saccade_count_1s",  "from": 0.5,   "to": 0.6}]
+```
+
+Holdout results — five sessions the proposal never influenced:
+
+| State | Sensitivity | Specificity |
+|---|---|---|
+| **blank_stare** | **0.273 → 1.000** | 1.000 → 1.000 |
+| **focus** | 1.000 → 1.000 | **0.619 → 1.000** |
+| off_task | 1.000 → 1.000 | 1.000 → 1.000 |
+
+No metric regressed, so the gate passed. The validator recorded `stage: 4, warnings: []` — the recomputation check found the server's own numbers and the proposal's self-test in agreement.
+
+The detail worth reading twice is in the model's stated reasoning for the first change:
+
+> *"…a value distinct from the previously rejected 0.06 / 0.062, to distribute holdout overfitting risk."*
+
+An earlier generation had proposed 0.06 and had it rejected. That outcome is in the lineage, the lineage is in the evidence, and the model used it — choosing a different point in the separation gap specifically to avoid repeating a recorded failure. Nothing in the prompt instructs it to consult past rejections. This is what we mean by memory as evidence: the agent's history changed what it proposed next.
+
 ## What was built during the hackathon submission period
 
 Stated plainly for rules compliance. **The measurement pipeline and the validation-gate architecture pre-existed the hackathon.** During the submission period we:
