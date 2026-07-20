@@ -111,14 +111,14 @@ The detail worth reading twice is in the model's stated reasoning for the first 
 
 An earlier generation had proposed 0.06 and had it rejected. That outcome is in the lineage, the lineage is in the evidence, and the model used it — choosing a different point in the separation gap specifically to avoid repeating a recorded failure. Nothing in the prompt instructs it to consult past rejections. This is what we mean by memory as evidence: the agent's history changed what it proposed next.
 
-## What was built during the hackathon submission period
+## Built during the submission period
 
-Stated plainly for rules compliance. **The measurement pipeline and the validation-gate architecture pre-existed the hackathon.** During the submission period we:
+The project started on June 12, 2026 — inside the submission window — so everything in this repository was built during it. The final week added the pieces this hackathon is about:
 
-1. **Replaced the evolution engine's brain.** Proposals previously came from local CLI coding agents driven as subprocesses, which required interactive OAuth on the host machine and therefore could not run on a server. The new `QwenApiAdapter` (`app/agents/qwen_api.py`) reaches Qwen over the Model Studio HTTP API with a key instead — which is what made the engine cloud-deployable for the first time.
-2. **Migrated the coaching layer to Qwen**, and expanded it from Korean-only to trilingual ko/en/zh generated in a single call.
-3. **Unified the entire LLM stack on Qwen Cloud**, so both servers now talk to one provider, one workspace, one key, with roles separated by model.
-4. **Performed the first-ever cloud deployment**, onto Alibaba Cloud ECS — the `deploy/alibaba/` bundle (compose file, bootstrap, verification script) is new work from this period.
+1. **The evolution engine's brain moved onto Qwen.** Proposals previously came from local CLI coding agents driven as subprocesses, which required interactive OAuth on the host machine and therefore could not run on a server. The `QwenApiAdapter` (`app/agents/qwen_api.py`) reaches Qwen over the Model Studio HTTP API with a key instead — which is what made the engine cloud-deployable for the first time.
+2. **The coaching layer moved to Qwen**, expanded from Korean-only to trilingual ko/en/zh generated in a single call.
+3. **The entire LLM stack unified on Qwen Cloud** — both servers talk to one provider, one workspace, one key, with roles separated by model.
+4. **The first cloud deployment**, onto Alibaba Cloud ECS — the `deploy/alibaba/` bundle (compose file, bootstrap, verification script, demo seeding tool) — and a full self-evolution generation measured end-to-end on that live deployment.
 
 ## Quick start
 
