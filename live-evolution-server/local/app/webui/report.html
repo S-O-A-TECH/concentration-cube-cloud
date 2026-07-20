@@ -87,7 +87,7 @@ async function loadSets() {
   const cands = sets.filter((p) => p.origin !== 'seed');
   const want = qs('id');
   document.getElementById('ps').innerHTML = cands.length
-    ? cands.map((p) => `<option value="${esc(p.id)}" ${p.id === want ? 'selected' : ''}>
+    ? cands.map((p) => `<option value="${esc(p.id)}" ${String(p.id) === want ? 'selected' : ''}>
         ${esc(p.version)} · ${esc(p.status)}</option>`).join('')
     : '<option value="">No candidates — run evolution first</option>';
   if (cands.length) await load();
@@ -96,7 +96,7 @@ async function loadSets() {
 async function load() {
   const pid = document.getElementById('ps').value;
   if (!pid) return;
-  const ps = sets.find((p) => p.id === pid);
+  const ps = sets.find((p) => String(p.id) === String(pid));
   let rep = null;
   try { rep = await api(`/api/param_sets/${encodeURIComponent(pid)}/report`); }
   catch (e) { /* 아직 evaluate 전 */ }
@@ -125,7 +125,7 @@ async function load() {
 
 document.getElementById('btn-promote').onclick = async () => {
   const pid = document.getElementById('ps').value;
-  const ps = sets.find((p) => p.id === pid);
+  const ps = sets.find((p) => String(p.id) === String(pid));
   const ok = await confirmModal({ title: 'Adopt (promote)', confirmText: 'Adopt', danger: false,
     body: `Adopting <b>${esc(ps.version)}</b> will:<br>· re-score all sessions<br>` +
           '· apply the new interpretation criteria <b>immediately</b>.<br>To undo, use [Rollback] in the generation history.' });

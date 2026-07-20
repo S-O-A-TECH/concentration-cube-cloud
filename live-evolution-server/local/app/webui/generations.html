@@ -77,7 +77,7 @@ async function load() {
 }
 
 async function showDetail(pid) {
-  const ps = data.param_sets.find((p) => p.id === pid);
+  const ps = data.param_sets.find((p) => String(p.id) === String(pid));
   const el = document.getElementById('detail');
   let local = null;
   if (ps.local) {
