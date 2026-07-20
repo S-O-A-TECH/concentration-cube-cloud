@@ -20,7 +20,7 @@ claude/codex 와 결정적으로 다른 두 가지 (의도된 단순화):
 설정(env 우선, .env 파일 폴백):
   QWEN_API_KEY        (없으면 DASHSCOPE_API_KEY 로 폴백)
   QWEN_BASE_URL       기본 https://ws-...aliyuncs.com/compatible-mode/v1
-  QWEN_MODEL          기본 qwen3-coder-plus (qwen-max 등으로 override 가능)
+  QWEN_MODEL          기본 qwen3.7-max (워크스페이스에서 승인된 모델이어야 한다)
 """
 from __future__ import annotations
 

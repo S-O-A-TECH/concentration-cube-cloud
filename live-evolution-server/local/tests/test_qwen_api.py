@@ -29,6 +29,20 @@ _TB = build_targets_bounds(["blank_stare"])
 _CHANGE_KEY = "blank_stare.stare_dispersion_th"
 
 
+def _no_key(monkeypatch):
+    """'키 없음' 상태를 만든다.
+
+    환경변수를 지우는 것만으로는 부족하다 — 어댑터는 .env 파일도 폴백으로 읽으므로
+    (_conf() 의 _load_env_file), 개발자 PC 에 실제 키가 든 .env 가 있으면 테스트가
+    거짓 통과/실패한다. 파일 경로까지 함께 차단해야 격리가 성립한다.
+    """
+    monkeypatch.delenv("QWEN_API_KEY", raising=False)
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    monkeypatch.delenv("LEV_QWEN_API_KEY", raising=False)
+    monkeypatch.delenv("LEV_DASHSCOPE_API_KEY", raising=False)
+    monkeypatch.setattr(qwen, "_load_env_file", lambda _p: {})
+
+
 # ------------------------------------------------------------------ 가짜 HTTP 응답
 
 class _FakeResp:
@@ -140,8 +154,7 @@ def test_coerce_changes_caps_at_eight():
 # ------------------------------------------------------------------ detect / auth
 
 def test_detect_no_key(monkeypatch):
-    monkeypatch.delenv("QWEN_API_KEY", raising=False)
-    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    _no_key(monkeypatch)
     d = QwenApiAdapter().detect()
     assert not d.installed
     assert "키" in d.error
@@ -167,8 +180,7 @@ def test_check_auth_401(with_key, monkeypatch):
 
 
 def test_check_auth_no_key(monkeypatch):
-    monkeypatch.delenv("QWEN_API_KEY", raising=False)
-    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    _no_key(monkeypatch)
     a = QwenApiAdapter().check_auth()
     assert not a.ok and "QWEN_API_KEY" in a.detail
 
@@ -245,7 +257,6 @@ def test_propose_retries_on_500(ws, with_key, monkeypatch):
 
 
 def test_propose_no_key(ws, monkeypatch):
-    monkeypatch.delenv("QWEN_API_KEY", raising=False)
-    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    _no_key(monkeypatch)
     out = QwenApiAdapter().propose(ws, 60)
     assert not out.ok and "QWEN_API_KEY" in out.error
