@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ '🧪 테스트' if card.country == 'test' else '🌍 ' ~ card.name ~ ' (' ~ card.country ~ ')' }}
+  <span class="note">활성 구독 {{ card.total }}명 — 기간을 클릭하면 계정 목록으로</span></h1>
+<p><a href="/ops/dashboard">← 구독 현황</a></p>
+
+<div class="cards">
+  {% for m, label in [('2', '2개월 구독'), ('4', '4개월 구독'), ('6', '6개월 구독'), ('12', '1년 구독')] %}
+  <a class="card" href="/ops/subscriptions?country={{ card.country }}&months={{ m }}"
+     style="text-decoration:none;color:inherit;cursor:pointer">
+    {{ label }}<b>{{ card.by_months[m] }}명</b>
+  </a>
+  {% endfor %}
+  {% if card.by_months['etc'] %}
+  <div class="card">기타 기간<b>{{ card.by_months['etc'] }}명</b></div>
+  {% endif %}
+</div>
+
+<p class="note" style="margin-top:14px">
+  <a href="/ops/subscriptions?country={{ card.country }}">이 {{ '테스트 그룹' if card.country == 'test' else '국가' }}의 전체 구독 보기 →</a>
+</p>
+{% endblock %}

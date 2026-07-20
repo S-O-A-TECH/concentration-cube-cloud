@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>설정 — Live Evolution</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
+</head>
+<body>
+<main>
+  <h1>설정</h1>
+  <details class="help">
+    <summary>이 화면 사용법 — 무엇을 언제 바꾸나</summary>
+    <div class="body">
+      <ul>
+        <li><b class="k">에이전트 실행</b> — 기본 에이전트/타임아웃/일일 상한. 타임아웃은 에이전트가
+          제안을 만드는 데 쓸 수 있는 총 시간(자가 시험 루프 포함, 보통 600~900초).</li>
+        <li><b class="k">트리거</b> — 새 정답지가 N개 쌓이면 대시보드에 "제안 준비됨" 알림.
+          <b>자동 제안 모드</b>를 켜면 알림 대신 세대 실행까지 자동으로 하되,
+          <span class="warn">어떤 경우에도 채택은 성적표 화면의 사람 버튼</span>입니다.</li>
+        <li><b class="k">프로토콜 프리셋</b> — 검증 세션 안내판의 대본. 한 줄 = <code>라벨,초,지시문</code>.
+          안내판은 참고용이고 정답지는 언제나 실제 클릭입니다.</li>
+        <li><b class="k">세션 필터</b> — 임상 전환 스위치. 지금은 웹캠, 임상에서는 research 큐브로
+          소스만 바뀝니다(코드 변경 0).</li>
+        <li><b class="k">연결(.env)</b> — 서버 주소·토큰은 보안상 화면에서 수정하지 않습니다.
+          <code>local/.env</code> 파일을 고치고 서버를 재시작하세요.</li>
+      </ul>
+    </div>
+  </details>
+  <div class="grid2">
+    <div class="card" style="margin:0">
+      <h2 style="margin-top:0">에이전트 실행</h2>
+      <label class="fld">기본 에이전트</label>
+      <select id="s-agent"><option value="claude">Claude Code</option><option value="codex">Codex</option><option value="qwen">Qwen (API)</option></select>
+      <label class="fld">타임아웃 (초 — simulate 루프 포함)</label>
+      <input type="number" id="s-timeout" min="60" max="3600">
+      <label class="fld">일일 실행 상한</label>
+      <input type="number" id="s-limit" min="1" max="200">
+    </div>
+    <div class="card" style="margin:0">
+      <h2 style="margin-top:0">트리거</h2>
+      <label class="fld">라벨 누적 알림 N (새 라벨 세션 N개 → "제안 준비됨")</label>
+      <input type="number" id="s-trigger" min="1" max="50">
+      <label class="row sub" style="margin-top:12px;gap:8px">
+        <input type="checkbox" id="s-auto" style="width:auto">
+        자동 제안 모드 (opt-in) — COLLECT→EVALUATING 자동 진행, PASSED 에서 정지
+      </label>
+      <p class="sub" style="color:var(--bad)">어느 모드에서든 <b>채택은 언제나 수동</b>입니다 — [채택] 버튼 없이는 아무것도 운영에 반영되지 않습니다.</p>
+      <label class="row sub" style="gap:8px">
+        <input type="checkbox" id="s-debug" style="width:auto">
+        콘솔에 기기 판정(live_state) 표시 — 디버그 전용 (기본 숨김)
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">프로토콜 프리셋 (검증 세션 안내판)</h2>
+    <p class="sub">형식: 한 줄에 <code>라벨,초,지시문</code> — 라벨은 focus / blank_stare / off_task</p>
+    <div id="presets"></div>
+    <button class="small ghost" style="margin-top:10px" onclick="addPreset()">+ 프리셋 추가</button>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">세션 필터 (임상 전환 스위치)</h2>
+    <p class="sub">지금은 웹캠 프로토(WEBCAM_PROTO_001) — 임상에서는 research_mode 큐브로 소스만 바뀝니다. 코드 변경 0.</p>
+    <label class="fld">기기 필터 (비우면 전체)</label>
+    <input type="text" id="s-device" placeholder="WEBCAM_PROTO_001">
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">연결 (.env — 화면에서는 안내만, 변경은 파일에서)</h2>
+    <div class="kv" id="env"></div>
+    <p class="sub" style="margin-top:8px">게이트 규칙 (운영 서버 정의, 읽기 전용): <span id="gate-rule">—</span></p>
+    <p class="sub">백업: <code>.venv\Scripts\python tools\backup_state.py</code> (주 1회 권장 — state.sqlite 파일 복사)</p>
+  </div>
+
+  <div class="row"><button id="btn-save">저장</button><span class="sub" id="saved"></span></div>
+</main>
+<script src="/static/js/api.js"></script>
+<script>
+injectNav('/settings');
+let presets = [];
+
+function renderPresets() {
+  document.getElementById('presets').innerHTML = presets.map((p, i) => `
+    <div class="row" style="margin-bottom:8px;align-items:flex-start">
+      <input type="text" value="${esc(p.name)}" style="width:140px" onchange="presets[${i}].name=this.value">
+      <textarea rows="4" style="flex:1;font-family:Consolas,monospace;font-size:.82rem"
+        onchange="parseSteps(${i}, this.value)">${esc(p.steps.map((s) =>
+          `${s.label},${s.sec},${s.instruction}`).join('\n'))}</textarea>
+      <button class="small danger ghost" onclick="presets.splice(${i},1);renderPresets()">삭제</button>
+    </div>`).join('');
+}
+function parseSteps(i, text) {
+  presets[i].steps = text.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [label, sec, ...rest] = l.split(',');
+    return { label: label.trim(), sec: Number(sec), instruction: rest.join(',').trim() };
+  }).filter((s) => ['focus', 'blank_stare', 'off_task'].includes(s.label) && s.sec > 0);
+}
+function addPreset() {
+  presets.push({ name: `프리셋${presets.length + 1}`, steps: [
+    { label: 'focus', sec: 120, instruction: '집중해서 읽어!' }] });
+  renderPresets();
+}
+
+async function load() {
+  let d;
+  try { d = await api('/api/settings'); } catch (e) { showErr(e); return; }
+  const v = d.values, df = d.defaults;
+  document.getElementById('s-agent').value = v.agent_default ?? df.agent_default;
+  document.getElementById('s-timeout').value = v.agent_timeout_sec ?? df.agent_timeout_sec;
+  document.getElementById('s-limit').value = v.daily_run_limit ?? df.daily_run_limit;
+  document.getElementById('s-trigger').value = v.trigger_n ?? df.trigger_n;
+  document.getElementById('s-auto').checked = !!v.auto_propose;
+  document.getElementById('s-debug').checked = !!v.debug_show_live_state;
+  document.getElementById('s-device').value = (v.session_filter || {}).device || '';
+  presets = v.protocol_presets || [];
+  renderPresets();
+  document.getElementById('env').innerHTML = Object.entries(d.env).map(([k, val]) =>
+    `<b>${esc(k)}</b><span class="mono">${esc(val)}</span>`).join('');
+  document.getElementById('gate-rule').textContent = d.gate_rule || '운영 서버 연결 후 표시';
+}
+
+document.getElementById('btn-save').onclick = async () => {
+  try {
+    await post('/api/settings', {
+      agent_default: document.getElementById('s-agent').value,
+      agent_timeout_sec: Number(document.getElementById('s-timeout').value),
+      daily_run_limit: Number(document.getElementById('s-limit').value),
+      trigger_n: Number(document.getElementById('s-trigger').value),
+      auto_propose: document.getElementById('s-auto').checked,
+      debug_show_live_state: document.getElementById('s-debug').checked,
+      session_filter: { device: document.getElementById('s-device').value.trim() || null },
+      protocol_presets: presets,
+    });
+    document.getElementById('saved').textContent = '저장됨 ✓';
+    toast('설정 저장');
+  } catch (e) { showErr(e); }
+};
+load();
+</script>
+</body>
+</html>

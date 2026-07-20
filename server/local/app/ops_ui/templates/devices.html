@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>기기 관리</h1>
+<h2>기기 등록 (웹캠 프로토 포함)</h2>
+<p>
+  <input id="serial" placeholder="시리얼 (예: VCUBE-000002)">
+  <label><input type="checkbox" id="research"> research_flag (검증 연구용)</label>
+  <button onclick="registerDevice()">등록 → 토큰 발급</button>
+</p>
+<div id="tokenBox" style="display:none">
+  <p class="note">⚠ factory_token 평문은 지금 1회만 표시됩니다 — 기기 .env 에 보관하세요.</p>
+  <pre class="tok" id="tokenOut"></pre>
+</div>
+<table>
+<tr><th>ID</th><th>시리얼</th><th>HW</th><th>FW</th><th>research</th><th>세션 수</th><th>토큰</th></tr>
+{% for d in data.devices %}
+<tr>
+  <td>{{ d.id }}</td><td>{{ d.serial }}</td><td>{{ d.hw_rev or '—' }}</td><td>{{ d.fw_ver or '—' }}</td>
+  <td><button onclick="toggleResearch({{ d.id }}, {{ 'false' if d.research_flag else 'true' }})">
+      {{ '🟢 on' if d.research_flag else '⚪ off' }}</button></td>
+  <td>{{ d.sessions }}</td>
+  <td><button onclick="reissue({{ d.id }})">재발급</button></td>
+</tr>
+{% endfor %}
+</table>
+<p class="note" id="msg"></p>
+<script>
+function showToken(data) {
+  document.getElementById('tokenBox').style.display = '';
+  document.getElementById('tokenOut').textContent =
+    `serial: ${data.serial}\nfactory_token: ${data.factory_token}`;
+}
+async function registerDevice() {
+  const r = await fetch('/v1/ops/devices', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({serial: document.getElementById('serial').value,
+                          research_flag: document.getElementById('research').checked})});
+  const body = await r.json();
+  if (r.ok) showToken(body);
+  else document.getElementById('msg').textContent = `등록 실패: ${body.detail}`;
+}
+async function reissue(id) {
+  const r = await fetch(`/v1/ops/devices/${id}/reissue_token`, {method: 'POST'});
+  const body = await r.json();
+  if (r.ok) showToken(body);
+}
+async function toggleResearch(id, value) {
+  await fetch(`/v1/ops/devices/${id}/research_flag`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({research_flag: value === 'true' || value === true})});
+  location.reload();
+}
+</script>
+{% endblock %}

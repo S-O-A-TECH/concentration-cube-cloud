@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>버전
+  <span class="badge">현재 {{ data.current or '—' }}</span>
+  <span class="note">Live Evolution 이 서버의 내부 원칙(채점 엔진)을 채택할 때마다 0.0.0.1 씩 올라갑니다</span>
+</h1>
+<p class="note">
+  각 행 = 한 번의 진화 채택. "바뀐 내부 원칙"은 AI 가 오답노트를 근거로 수정한 내용의 기록이며,
+  채택 즉시 과거 세션까지 소급 재채점됩니다. 제안·시험은 AI 가, 채택은 언제나 사람이 합니다.
+</p>
+
+<table>
+<tr><th>버전</th><th>업데이트(YYYY-MM-DD-HH)</th><th>바뀐 내부 원칙</th>
+    <th>엔진</th><th>제안</th><th>승인</th><th>상태</th></tr>
+{% for v in data.versions %}
+<tr>
+  <td><b>{{ v.version }}</b>{% if v.version == data.current %} <span class="badge">현재</span>{% endif %}</td>
+  <td>{{ v.updated_at }}</td>
+  <td style="max-width:420px">{{ v.principle }}</td>
+  <td>{{ v.param_set_version }} <span class="note">({{ v.engine_version }})</span></td>
+  <td>{{ 'AI(' ~ (v.agent or 'agent') ~ ')' if v.origin == 'agent' else ('시드' if v.origin == 'seed' else '수동') }}</td>
+  <td>{{ v.decided_by or '—' }}</td>
+  <td>{{ '↩ 롤백됨' if v.status == 'rolled_back' else '채택' }}</td>
+</tr>
+{% else %}
+<tr><td colspan="7">채택 이력 없음</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

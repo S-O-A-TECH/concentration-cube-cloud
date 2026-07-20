@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검증 세션 콘솔 — Live Evolution</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
+</head>
+<body>
+<main>
+  <h1>실시간 검증 세션 콘솔</h1>
+  <p class="sub">[시작]이 기기를 직접 시작시키고, 지시와 동시에 누르는 버튼이 유일한 정답지입니다.
+    사후 편집은 없습니다 — 실패하면 [연구 제외] 후 5분 세션을 다시 하세요.</p>
+  <details class="help">
+    <summary>이 화면 사용법 — 정답지(라벨)는 여기서만 태어납니다</summary>
+    <div class="body">
+      피검자와 관리자가 <b class="k">같은 공간</b>에 있고, 관리자가 말로 지시하면서
+      <b class="k">동시에</b> 버튼을 누르는 방식입니다. 버튼 클릭 시각이 곧 정답지가 됩니다
+      (기기의 세션 시계로 기록 — PC 시계 아님).
+      <h4>준비물</h4>
+      <ul>
+        <li>웹캠 프로토가 켜져 있어야 합니다: <code>web_cam_version_prototype</code> 폴더에서
+          <code>.venv\Scripts\python run.py</code> (기기 배지가 위에 표시됨)</li>
+        <li>피검자 1명 + 책. 세션은 5분(LAB-5) — 짧게 여러 번이 좋은 데이터를 만듭니다.</li>
+      </ul>
+      <h4>진행 (예: 기본5분 프리셋)</h4>
+      <ul>
+        <li>[시작] → 보정(피검자가 책 네 모서리 응시) → 측정 시작</li>
+        <li>"지금부터 집중해서 읽어!" 라고 말하며 <b class="k">동시에 [집중]</b> 클릭 —
+          이후 안내판이 다음 지시와 카운트다운을 크게 보여줍니다.
+          <span class="warn">자동 마킹은 없습니다</span> — 실제로 지시한 순간의 클릭만이 진실.</li>
+        <li><b class="k">[중단/기타]</b> = 화장실·기침·방해 — 그 구간은 정답지에서 빠집니다(평가 제외).</li>
+        <li>잘못 눌렀거나 프로토콜이 무너지면 → <b class="k">[폐기하고 다시]</b>. 5분이라 부담이 없습니다.</li>
+      </ul>
+      <h4>종료 후</h4>
+      <ul>
+        <li>요약을 확인하고 <b class="k">[저장]</b> — <span class="warn">세션당 1회, 수정 불가</span>.
+          의심스러우면 저장하지 말고 [연구 제외].</li>
+        <li>"동기화 경고" 배지가 있으면 타임라인을 먼저 확인하세요.</li>
+        <li>저장된 세션은 <a href="/archive">아카이브</a> 최상단에 나타납니다. 정답지가 10개 이상
+          모이면 <a href="/evolve">진화 실행</a>이 열립니다.</li>
+      </ul>
+      기기의 실시간 판정은 기본 숨김입니다(피검자가 화면을 볼 수 있고, 관리자 타이밍이 기계에
+      끌리는 것을 막기 위해) — 필요하면 설정에서 디버그 표시를 켜세요.
+    </div>
+  </details>
+
+  <!-- 시작 패널 -->
+  <div class="card" id="start-panel">
+    <div class="row">
+      <div>
+        <label class="fld">프로토콜 프리셋 (안내판용 — 자동 마킹 없음)</label>
+        <select id="preset"></select>
+      </div>
+      <div>
+        <label class="fld"><i class="term" data-term="labeler">기록자</i> (버튼 누르는 사람)</label>
+        <input type="text" id="labeler" value="admin" style="width:140px">
+      </div>
+      <label class="row sub" style="align-self:flex-end;gap:6px">
+        <input type="checkbox" id="skip-calib" style="width:auto"> 보정 생략(개발용)
+      </label>
+      <button id="btn-start" style="align-self:flex-end">▶ 세션 시작 (LAB-5 · 5분)</button>
+    </div>
+    <p class="sub" id="device-hint" style="margin-top:10px"></p>
+  </div>
+
+  <!-- 진행 패널 -->
+  <div id="run-panel" style="display:none">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <span id="dev-state" class="badge info">—</span>
+        <span id="sync-badge"></span>
+        <span class="sub" id="sid-label"></span>
+      </div>
+      <div class="big-timer" id="timer">00:00</div>
+      <div class="progressbar"><i id="prog" style="width:0%"></i></div>
+      <div id="calib-panel" style="margin-top:12px"></div>
+      <div id="debug-live" class="sub" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card instruction-board" id="board" style="display:none">
+      <div class="sub">다음 지시</div>
+      <div class="next" id="board-next">—</div>
+      <div class="count" id="board-count">—</div>
+      <div class="sub" id="board-now"></div>
+    </div>
+
+    <div class="mark-grid">
+      <button class="mark-btn st-focus" data-b="focus">집중<small>"집중해서 읽어!"</small></button>
+      <button class="mark-btn st-blank_stare" data-b="blank_stare">멍때리기<small>"이제부터 멍때려~"</small></button>
+      <button class="mark-btn st-off_task" data-b="off_task">이탈<small>"딴 데 보면서 딴짓해!"</small></button>
+      <button class="mark-btn pause" data-b="pause">중단/기타<small>화장실·방해·기침 → 정답지 제외</small></button>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">내가 찍은 <i class="term" data-term="truth">정답지</i> — 클릭이 곧 기록</h2>
+      <div class="timeline" id="click-tl"></div>
+      <div class="legend" id="legend"></div>
+      <table class="tbl" id="click-list" style="margin-top:10px"></table>
+      <div class="row" style="margin-top:14px">
+        <button id="btn-finish">■ 세션 종료</button>
+        <button id="btn-discard" class="danger ghost">폐기하고 다시</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 종료 후 저장 패널 -->
+  <div id="save-panel" style="display:none">
+    <div class="card">
+      <h2 style="margin-top:0">정답지 요약 — 저장은 1회뿐입니다 (불변)</h2>
+      <div id="save-warn"></div>
+      <div class="timeline" id="sum-tl"></div>
+      <table class="tbl" id="sum-table" style="margin-top:10px"></table>
+      <div class="row" style="margin-top:14px">
+        <button id="btn-save">💾 정답지 저장 (운영 서버, 1회)</button>
+        <button id="btn-exclude" class="danger ghost">연구 제외</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="/static/js/api.js"></script>
+<script>
+injectNav('/console');
+renderLegend(document.getElementById('legend'));
+let st = null;          // 서버 콘솔 상태
+let finishedSummary = null;
+let presets = [];
+
+async function loadPresets() {
+  try {
+    presets = (await api('/api/console/presets')).presets;
+    document.getElementById('preset').innerHTML =
+      presets.map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('')
+      + '<option value="">자유 진행 (프리셋 없음)</option>';
+  } catch (e) { showErr(e); }
+}
+
+function clicksToSegments(clicks, endT) { // 서버 규칙과 동일한 미리보기
+  const segs = []; let openL = null, openT = 0;
+  for (const c of [...clicks].sort((a, b) => a.t - b.t)) {
+    if (openL !== null && c.t > openT) segs.push({ t0: openT, t1: c.t, label: openL });
+    openL = c.button === 'pause' ? null : c.button; openT = c.t;
+  }
+  if (openL !== null && endT > openT) segs.push({ t0: openT, t1: endT, label: openL });
+  return segs;
+}
+
+function renderBoard(tNow) {
+  const sel = st && st.preset;
+  const board = document.getElementById('board');
+  if (!sel) { board.style.display = 'none'; return; }
+  board.style.display = '';
+  let acc = 0, cur = null, next = null;
+  for (const s of sel.steps) {
+    if (tNow < acc + s.sec) { cur = s; next = sel.steps[sel.steps.indexOf(s) + 1]; break; }
+    acc += s.sec;
+  }
+  if (!cur) {
+    document.getElementById('board-next').textContent = '프리셋 종료 — [세션 종료]를 눌러 주세요';
+    document.getElementById('board-count').textContent = '—';
+    document.getElementById('board-now').textContent = '';
+    return;
+  }
+  const remain = Math.max(0, acc + cur.sec - tNow);
+  document.getElementById('board-now').textContent =
+    `지금: ${STATE_LABEL[cur.label]} — "${cur.instruction}"`;
+  document.getElementById('board-next').textContent =
+    next ? `${Math.ceil(remain)}초 뒤 → "${next.instruction}"` : `${Math.ceil(remain)}초 뒤 세션 종료`;
+  document.getElementById('board-count').textContent = fmtMMSS(remain);
+}
+
+function render() {
+  const running = st.phase === 'running';
+  document.getElementById('start-panel').style.display = running || st.phase === 'finished' ? 'none' : '';
+  document.getElementById('run-panel').style.display = running ? '' : 'none';
+  document.getElementById('save-panel').style.display = st.phase === 'finished' ? '' : 'none';
+  if (!running && st.phase !== 'finished') return;
+
+  const dev = st.device || {};
+  const t = st.t_interp || dev.t_sec || 0;
+  const dur = dev.duration_sec || 300;
+  document.getElementById('dev-state').textContent =
+    ({ calibrating: '보정 중', recording: '측정 중', finishing: '저장 중', done: '완료',
+       aborted: '폐기됨', failed: '실패', error: '오류' })[dev.state] || dev.state || '연결 중';
+  document.getElementById('sid-label').textContent = st.sid || '';
+  document.getElementById('timer').textContent = fmtMMSS(t);
+  document.getElementById('prog').style.width = `${Math.min(100, t / dur * 100)}%`;
+  document.getElementById('sync-badge').innerHTML = st.sync_warning
+    ? '<span class="badge warn" title="상태 스트림 공백 중 클릭이 있었습니다 — 저장 전 확인하세요">동기화 경고</span>' : '';
+  document.getElementById('debug-live').textContent =
+    dev.live_state ? `기기 판정(디버그): ${STATE_LABEL[dev.live_state] || dev.live_state}` : '';
+
+  // 보정 패널
+  const cp = document.getElementById('calib-panel');
+  if (dev.state === 'calibrating') {
+    const c = dev.calib;
+    cp.innerHTML = `<div class="row">
+      <span class="sub">${c ? esc(c.point_label || '') + ' (' + esc(c.phase || '') + ')'
+        : '피검자가 책의 네 모서리를 순서대로 바라보게 하세요.'}</span>
+      <button class="small" onclick="calib('start')">보정 시작</button>
+      <button class="small ghost" onclick="calib('retry')">재시도</button>
+      <button class="small ghost" onclick="calib('skip')">생략(개발용)</button>
+      ${c && c.fail_reason ? `<span class="badge err">${esc(c.fail_reason)}</span>` : ''}
+    </div>`;
+  } else cp.innerHTML = '';
+
+  // 버튼 활성화 + 현재 상태 하이라이트
+  const canMark = dev.state === 'recording';
+  const last = st.clicks[st.clicks.length - 1];
+  document.querySelectorAll('.mark-btn').forEach((b) => {
+    b.disabled = !canMark;
+    b.classList.toggle('current', !!last && last.button === b.dataset.b);
+  });
+
+  // 클릭 이력 (실시간 정답지)
+  renderTimeline(document.getElementById('click-tl'), clicksToSegments(st.clicks, t)
+    .map((s) => ({ ...s, state: s.label })), dur);
+  document.getElementById('click-list').innerHTML =
+    st.clicks.length ? '<tr><th>t</th><th>버튼</th></tr>' + st.clicks.map((c) =>
+      `<tr><td class="num">${fmtMMSS(c.t)}</td><td>${STATE_LABEL[c.button] || '중단/기타'}
+       ${c.warn ? ' <span class="badge warn">동기화</span>' : ''}</td></tr>`).join('')
+    : '<tr><td class="sub">지시와 동시에 위 버튼을 눌러 주세요 — 첫 클릭 전 구간은 정답지에 포함되지 않습니다.</td></tr>';
+  renderBoard(t);
+
+  if (st.phase === 'finished' && finishedSummary) {
+    renderTimeline(document.getElementById('sum-tl'), finishedSummary.segments
+      .map((s) => ({ ...s, state: s.label })), dur);
+    document.getElementById('sum-table').innerHTML =
+      '<tr><th>구간</th><th>라벨</th><th>길이</th></tr>' + finishedSummary.segments.map((s) =>
+        `<tr><td class="num">${fmtMMSS(s.t0)}–${fmtMMSS(s.t1)}</td>
+         <td>${STATE_LABEL[s.label]}</td><td class="num">${fmtT(s.t1 - s.t0)}</td></tr>`).join('');
+    document.getElementById('save-warn').innerHTML = finishedSummary.sync_warning
+      ? '<div class="notice-bar">⚠ 동기화 경고가 있는 세션입니다 — 타임라인을 확인하고 의심스러우면 [연구 제외]를 권합니다.</div>' : '';
+  }
+}
+
+async function poll() {
+  try {
+    st = await api('/api/console/state');
+    if (st.phase === 'finished' && !finishedSummary)
+      finishedSummary = { segments: clicksToSegments(st.clicks,
+        (st.device || {}).t_sec || (st.device || {}).duration_sec || 300),
+        sync_warning: st.sync_warning };
+    render();
+  } catch (e) { /* 폴링 오류는 조용히 — 다음 틱에 재시도 */ }
+}
+
+async function calib(cmd) {
+  try { await post('/api/console/calibrate', { command: cmd }); } catch (e) { showErr(e); }
+}
+
+document.getElementById('btn-start').onclick = async () => {
+  try {
+    const r = await post('/api/console/start', {
+      preset: document.getElementById('preset').value || null,
+      labeler: document.getElementById('labeler').value || 'admin',
+      skip_calibration: document.getElementById('skip-calib').checked,
+    });
+    finishedSummary = null;
+    toast(`세션 시작: ${r.sid}`);
+  } catch (e) { showErr(e); }
+};
+document.querySelectorAll('.mark-btn').forEach((b) => b.onclick = async () => {
+  try { await post('/api/console/mark', { button: b.dataset.b }); await poll(); }
+  catch (e) { showErr(e); }
+});
+document.getElementById('btn-finish').onclick = async () => {
+  try { finishedSummary = await post('/api/console/finish'); await poll(); }
+  catch (e) { showErr(e); }
+};
+document.getElementById('btn-discard').onclick = async () => {
+  const reason = await promptModal({ title: '폐기하고 다시',
+    body: '이 세션을 저장 없이 폐기합니다 (기기 abort). 기록된 클릭도 사라집니다.',
+    placeholder: '사유 (예: 잘못 누름)', confirmText: '폐기', danger: true });
+  if (reason == null) return;
+  try { await post('/api/console/discard', { reason }); finishedSummary = null; toast('폐기 완료 — 새로 시작하세요'); }
+  catch (e) { showErr(e); }
+};
+document.getElementById('btn-save').onclick = async () => {
+  const ok = await confirmModal({ title: '정답지 저장', confirmText: '저장 (1회뿐)',
+    body: '운영 서버에 저장합니다. <b>저장은 세션당 1회뿐이고 수정할 수 없습니다.</b><br>' +
+          '실수가 있다면 저장하지 말고 [연구 제외] 후 다시 하세요.' });
+  if (!ok) return;
+  try {
+    const r = await post('/api/console/save');
+    finishedSummary = null;
+    toast(`정답지 저장 완료 (${r.n_segments}구간) — 아카이브에서 확인하세요`);
+  } catch (e) { showErr(e); }
+};
+document.getElementById('btn-exclude').onclick = async () => {
+  const reason = await promptModal({ title: '연구 제외',
+    body: '세션은 아카이브에 보존되고 평가에서만 빠집니다 (삭제 아님 — 복원 가능).',
+    confirmText: '연구 제외', danger: true });
+  if (reason == null) return;
+  try { await post('/api/console/discard', { reason }); finishedSummary = null; toast('연구 제외 처리했어요'); }
+  catch (e) { showErr(e); }
+};
+
+async function checkDevice() {
+  try {
+    const d = await api('/api/dashboard');
+    document.getElementById('device-hint').innerHTML = d.device.ok
+      ? '<span class="badge ok">기기(웹캠 프로토) 연결됨</span>'
+      : `<span class="badge err">기기 미연결</span> <span class="sub">${esc(d.device.error || '')}</span>`;
+  } catch (e) {}
+}
+loadPresets(); checkDevice(); poll();
+setInterval(poll, 600);
+</script>
+</body>
+</html>

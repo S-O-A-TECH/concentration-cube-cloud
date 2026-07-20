@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+{% if data is none %}
+<h1>리포트 없음</h1>
+<p>세션 {{ sid }} 의 승격된 결과가 아직 없습니다 (채점 대기/실패). <a href="/ops/sessions">← 세션 목록</a></p>
+{% else %}
+{% set r = data.result %}
+<h1>세션 리포트 <span class="note">{{ data.display }} · {{ data.mode }} · param_set {{ data.param_set_version }}</span></h1>
+<p><a href="/ops/sessions">← 세션 목록</a> · <span class="note">sid {{ data.sid }}</span></p>
+{% if data.device %}
+<p>
+  <span class="badge {{ 'warn' if data.device.kind == 'test' }}">
+    {{ '🧪 PC 테스트' if data.device.kind == 'test' else '📦 정식 기기' }}
+  </span>
+  {% if data.glasses is not none %}
+  <span class="badge">{{ '👓 안경 착용' if data.glasses else '안경 없음' }}</span>
+  {% endif %}
+  <span class="note">{{ data.device.serial }} · {{ data.device.label }}</span>
+</p>
+{% endif %}
+
+{% if data.alarm %}
+<div class="coach" style="border:1px solid #c0392b;background:#fdecea;color:#c0392b">
+  🚨 {{ data.alarm.message }}
+</div>
+{% endif %}
+
+{% if r.sfi is none %}
+<div class="coach">⚪ 측정 품질이 낮아 점수를 계산하지 않았습니다 — {{ r.coach_text.student }}</div>
+{% else %}
+<div class="cards">
+  <div class="card">SFI<b>{{ r.sfi }}</b><span class="badge">{{ r.confidence }}</span></div>
+  <div class="card">집중 유지<b>{{ r.focused_minutes }}분</b></div>
+  <div class="card">최장 집중<b>{{ r.max_focus_streak_min }}분</b></div>
+  <div class="card">평균 복귀<b>{{ r.mean_return_sec if r.mean_return_sec is not none else '—' }}초</b></div>
+  <div class="card">coverage<b>{{ '%.0f%%' % (r.quality.coverage * 100) }}</b></div>
+</div>
+
+<h2>타임라인</h2>
+<div class="timeline">
+  {% for s in segs %}
+  <i class="st-{{ s.state }}" style="left:{{ '%.2f' % s.left }}%;width:{{ '%.2f' % s.width }}%"></i>
+  {% endfor %}
+</div>
+<p class="legend">
+  <span><i class="st-focus"></i>집중</span>
+  <span><i class="st-off_task"></i>이탈</span>
+  <span><i class="st-blank_stare"></i>멍때림</span>
+  <span><i class="st-invalid"></i>측정 낮음</span>
+</p>
+
+<h2>성분</h2>
+{% set names = {'gaze_on_page': '시선 유지', 'return_latency': '복귀 속도', 'effort': '동공 반응',
+                'fatigue': '피로 관리', 'rhythm': '읽기 리듬', 'posture': '자세 안정'} %}
+{% for key, name in names.items() %}
+{% set v = r.components[key] %}
+<div class="comp"><span style="width:80px">{{ name }}</span>
+  <div class="bar">{% if v is not none %}<i style="width:{{ v }}%"></i>{% endif %}</div>
+  <span style="width:36px">{{ v | round | int if v is not none else '—' }}</span></div>
+{% endfor %}
+
+<h2>이벤트</h2>
+<table><tr><th>t</th><th>유형</th><th>상세</th></tr>
+{% set evnames = {'off_page': '이탈', 'blank_stare': '멍때림', 'drowsy_onset': '졸음 신호'} %}
+{% for e in r.events[:12] %}
+<tr><td>{{ '%d:%02d' % (e.t // 60, e.t % 60) }}</td><td>{{ evnames.get(e.type, e.type) }}</td>
+<td>{% if e.return_sec is defined and e.return_sec is not none %}{{ e.return_sec }}초 만에 복귀{% endif %}
+    {% if e.duration_sec is defined and e.duration_sec is not none %}{{ e.duration_sec }}초 지속{% endif %}</td></tr>
+{% else %}
+<tr><td colspan="3">특이 이벤트 없음</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<h2>코칭 문구</h2>
+<div class="coach">🧑‍🎓 {{ r.coach_text.student }}</div>
+<div class="coach">👨‍👩‍👧 {{ r.coach_text.parent }}</div>
+{% if r.llm_report %}
+<div class="coach">🤖 AI 코치 — {{ r.llm_report.student }}<br>
+<span class="note">보호자용: {{ r.llm_report.parent }} ({{ r.llm_report.model }})</span></div>
+{% endif %}
+{% endif %}
+{% endblock %}

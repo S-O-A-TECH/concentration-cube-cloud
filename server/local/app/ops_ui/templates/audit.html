@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>감사 로그</h1>
+<table>
+<tr><th>#</th><th>시각</th><th>행위자</th><th>액션</th><th>대상</th><th>상세</th></tr>
+{% for a in data.audit %}
+<tr><td>{{ a.id }}</td><td>{{ a.at[:19] }}</td><td>{{ a.actor }}</td>
+<td>{{ a.action }}</td><td>{{ a.target or '—' }}</td>
+<td class="note">{{ a.detail | tojson if a.detail else '—' }}</td></tr>
+{% else %}
+<tr><td colspan="6">기록 없음</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>계정 관리</h1>
+<p class="note">가족 계정: 보호자 1 · 학생 프로필 최대 3 · 기기 무제한 바인딩. 행을 클릭하면 계정 상세(시간순 데이터)로 이동.</p>
+
+<h2>계정 생성 (수동 — S-A 앱 가입 전)</h2>
+<p>
+  <input id="email" placeholder="보호자 이메일" style="width:240px">
+  <button onclick="createUser()">생성 → 앱 토큰 발급</button>
+</p>
+<div id="tokenBox" style="display:none">
+  <p class="note">⚠ app_token 평문은 지금 1회만 표시됩니다 — flutter 앱 설정에 보관하세요.</p>
+  <pre class="tok" id="tokenOut"></pre>
+</div>
+
+<form method="get" action="/ops/users" style="margin:12px 0">
+  <input name="q" value="{{ q }}" placeholder="이메일 검색">
+  <button type="submit">검색</button>
+  {% if q %}<a href="/ops/users">전체 보기</a>{% endif %}
+</form>
+
+<table>
+<tr><th>ID</th><th>이메일</th><th>가입 경로</th><th>프로필</th><th>구독</th><th>가입일</th></tr>
+{% for u in data.users %}
+<tr>
+  <td>{{ u.id }}</td>
+  <td><a href="/ops/users/{{ u.id }}">{{ u.email or '—' }}</a></td>
+  <td>{{ u.auth_provider or '—' }}</td>
+  <td>{{ u.profiles }}</td>
+  <td>{{ u.subscription or '—' }}</td>
+  <td>{{ u.created_at[:16] }}</td>
+</tr>
+{% else %}
+<tr><td colspan="6">계정 없음</td></tr>
+{% endfor %}
+</table>
+<p class="note">
+  총 {{ data.total }}건
+  {% if offset > 0 %}<a href="/ops/users?q={{ q }}&offset={{ offset - 50 }}">◀ 이전</a>{% endif %}
+  {% if offset + 50 < data.total %}<a href="/ops/users?q={{ q }}&offset={{ offset + 50 }}">다음 ▶</a>{% endif %}
+</p>
+<p class="note" id="msg"></p>
+<script>
+async function createUser() {
+  const r = await fetch('/v1/ops/users', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email: document.getElementById('email').value})});
+  const body = await r.json();
+  if (r.ok) {
+    document.getElementById('tokenBox').style.display = '';
+    document.getElementById('tokenOut').textContent =
+      `user_id: ${body.id}\nemail: ${body.email}\napp_token: ${body.app_token}`;
+  } else document.getElementById('msg').textContent = `생성 실패: ${body.detail}`;
+}
+</script>
+{% endblock %}

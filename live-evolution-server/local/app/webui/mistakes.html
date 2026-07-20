@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오답노트 — Live Evolution</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
+</head>
+<body>
+<main>
+  <h1>오답노트</h1>
+  <p class="sub">train 세션에서 정답지와 판정이 어긋난 10초 bin — AI 에이전트가 받는 증거의 원형 (holdout 은 여기에도 없습니다)</p>
+  <details class="help">
+    <summary>이 화면 사용법 — "엔진이 지금 뭘 못 맞히나"의 지도</summary>
+    <div class="body">
+      정답지(여러분의 클릭)와 기계 판정을 10초 단위로 대조해, 틀린 구간만 모아 보여줍니다.
+      <h4>읽는 법</h4>
+      <ul>
+        <li><b class="k">혼동 행렬</b> — 세로가 정답, 가로가 기계 판정. 대각선 밖의
+          <span class="warn">빨간 숫자</span>가 오답입니다. 예: "멍때림 행 × 집중 열 = 12" 는
+          "실제로는 멍때림인데 집중으로 잘못 본 구간이 12개".</li>
+        <li><b class="k">상태별 성적</b> — 민감도(그 상태를 얼마나 잡아내나)·특이도(아닌 것을
+          아니라고 하나). 85% 미만은 빨갛게 표시 — 그 상태가 이번 진화의 표적이 됩니다.</li>
+        <li><b class="k">불일치 bin 목록</b> — 개별 오답의 피처 요약. [타임라인 ↗]으로 해당 세션의
+          그 구간을 직접 볼 수 있습니다.</li>
+      </ul>
+      <h4>다음 행동</h4>
+      <ul>
+        <li>오답 패턴이 보이면 → <b class="k">[이 오답노트로 진화 실행]</b>. AI 에이전트는 여기 보이는
+          것과 같은 증거(+피처 분포)를 받아 개선안을 만듭니다.</li>
+        <li>오답이 거의 없다면 진화가 필요 없는 상태입니다 — 정답지를 더 모으세요.</li>
+      </ul>
+      holdout(숨겨둔 시험지) 세션은 이 화면에도, AI 에게도 절대 보이지 않습니다 — 그래야
+      성적표의 holdout 점수가 진짜 시험이 됩니다.
+    </div>
+  </details>
+  <div class="card">
+    <div class="row">
+      <div><label class="fld"><i class="term" data-term="paramset">판정 기준</i> (기본 = 현재 사용 중)</label><select id="ps"></select></div>
+      <button id="btn-evolve" style="align-self:flex-end">🧬 이 오답노트로 진화 실행</button>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="margin:0">
+      <h2 style="margin-top:0">혼동 행렬 (truth ↓ / predicted →)</h2>
+      <div class="scroll-x"><table class="tbl" id="conf"></table></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h2 style="margin-top:0">상태별 성적</h2>
+      <table class="tbl" id="per-state"></table>
+    </div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0"><i class="term" data-term="mistake">오답</i> — 정답지와 판정이 어긋난 <i class="term" data-term="bin">10초 구간</i> (<span id="n-mist">0</span>개)</h2>
+    <div class="scroll-x"><table class="tbl" id="mist"></table></div>
+  </div>
+</main>
+<script src="/static/js/api.js"></script>
+<script>
+injectNav('/mistakes');
+
+async function loadPs() {
+  try {
+    const { param_sets } = await api('/api/param_sets');
+    document.getElementById('ps').innerHTML = param_sets.map((p) =>
+      `<option value="${esc(p.id)}" ${p.active ? 'selected' : ''}>${esc(p.version)}${p.active ? ' (활성)' : ''}</option>`
+    ).join('');
+    await load();
+  } catch (e) {
+    showErr(e);
+    document.getElementById('mist').innerHTML =
+      `<tr><td class="sub">운영 서버에 연결되지 않았습니다 — ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function load() {
+  const pid = document.getElementById('ps').value;
+  let d;
+  try { d = await api('/api/mistakes?param_set_id=' + encodeURIComponent(pid)); }
+  catch (e) { showErr(e); return; }
+  const states = ['focus', 'off_task', 'blank_stare'];
+  document.getElementById('conf').innerHTML =
+    '<tr><th></th>' + states.map((s) => `<th>${STATE_LABEL[s]}</th>`).join('') + '</tr>' +
+    states.map((t) => `<tr><th>${STATE_LABEL[t]}</th>` + states.map((p) => {
+      const v = ((d.confusion || {})[t] || {})[p] || 0;
+      const hot = t !== p && v > 0;
+      return `<td class="num" style="${hot ? 'color:var(--bad);font-weight:700' : ''}">${v}</td>`;
+    }).join('') + '</tr>').join('');
+  document.getElementById('per-state').innerHTML =
+    `<tr><th>상태</th><th>${term('sens', '민감도 (잡아냄)')}</th><th>${term('spec', '특이도 (오인 안 함)')}</th></tr>` +
+    states.map((s) => {
+      const m = (d.per_state || {})[s] || {};
+      const bad = (v) => v != null && v < 0.85 ? 'style="color:var(--bad);font-weight:700"' : '';
+      return `<tr><td><i class="${STATE_CLASS[s]}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px"></i>${STATE_LABEL[s]}</td>
+        <td class="num" ${bad(m.sens)}>${pct(m.sens)}</td><td class="num" ${bad(m.spec)}>${pct(m.spec)}</td></tr>`;
+    }).join('');
+  document.getElementById('n-mist').textContent = (d.mistakes || []).length;
+  document.getElementById('mist').innerHTML =
+    `<tr><th>${term('session', '측정 세션')}</th><th>구간</th><th>정답(사람)</th><th>판정(기계)</th><th>측정값 요약</th><th></th></tr>` +
+    (d.mistakes || []).map((m) => `<tr>
+      <td class="mono">${esc(m.session_id)}</td>
+      <td class="num">${fmtMMSS(m.t0)}–${fmtMMSS(m.t1)}</td>
+      <td>${STATE_LABEL[m.truth]}</td><td>${STATE_LABEL[m.predicted]}</td>
+      <td class="mono">${esc(Object.entries(m.features_summary || {})
+        .map(([k, v]) => `${k.replace('gaze_', '').replace('_1s', '')}=${v}`).join('  '))}</td>
+      <td><a class="btn ghost small" href="/archive?sid=${encodeURIComponent(m.session_id)}&t=${m.t0}">타임라인 ↗</a></td>
+    </tr>`).join('');
+}
+
+document.getElementById('ps').onchange = load;
+document.getElementById('btn-evolve').onclick = () => location.href = '/evolve?start=1';
+loadPs();
+</script>
+</body>
+</html>

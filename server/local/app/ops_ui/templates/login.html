@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><title>운영 콘솔 로그인</title>
+<style>
+  body { font-family:'Segoe UI','Malgun Gothic',sans-serif; background:#1a2b4a; display:flex;
+         align-items:center; justify-content:center; height:100vh; margin:0; }
+  .box { background:#fff; border-radius:10px; padding:28px 32px; width:300px; }
+  h1 { font-size:17px; margin:0 0 16px; }
+  input { width:100%; padding:8px; margin:6px 0; box-sizing:border-box; }
+  button { width:100%; padding:9px; margin-top:10px; background:#1a2b4a; color:#fff;
+           border:none; border-radius:6px; cursor:pointer; }
+  #msg { color:#c0392b; font-size:13px; min-height:18px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>운영 콘솔 — concentration-cube</h1>
+  <input id="id" placeholder="운영자 ID" autocomplete="username">
+  <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+  <button onclick="login()">로그인</button>
+  <p id="msg"></p>
+</div>
+<script>
+async function login() {
+  const r = await fetch('/v1/ops/login', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: document.getElementById('id').value,
+                          pw: document.getElementById('pw').value})});
+  if (r.ok) location.href = '/ops/dashboard';
+  else document.getElementById('msg').textContent = '로그인 실패 — 자격을 확인하세요';
+}
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>

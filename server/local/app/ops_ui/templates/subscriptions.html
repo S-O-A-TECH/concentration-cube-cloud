@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>구독 목록
+{% if data.filter.country or data.filter.months %}
+<span class="note">필터:
+  {{ '테스트' if data.filter.country == 'test' else data.filter.country or '' }}
+  {{ (data.filter.months ~ '개월') if data.filter.months else '' }}
+  — <a href="/ops/dashboard{{ '/' ~ data.filter.country if data.filter.country else '' }}">← 돌아가기</a></span>
+{% endif %}</h1>
+<p class="note">계정을 클릭하면 기기·도전 세션 상세로. 구독 부여·변경은 <a href="/ops/users">계정 상세</a>에서.
+국가는 Google Play 웹훅(regionCode)이 채운다 — 없으면 '테스트' 버킷.</p>
+<table>
+<tr><th>ID</th><th>계정</th><th>국가</th><th>기간</th><th>상품</th><th>상태</th><th>출처</th><th>시작</th><th>만료</th><th>변경</th></tr>
+{% for s in data.subscriptions %}
+<tr>
+  <td>{{ s.id }}</td>
+  <td><a href="/ops/users/{{ s.user_id }}">{{ s.email or ('user:' ~ s.user_id) }}</a></td>
+  <td>{{ s.country or '🧪' }}</td>
+  <td>{{ (s.months ~ '개월') if s.months else '—' }}</td>
+  <td>{{ s.product }}</td><td>{{ s.state }}</td><td>{{ s.source or '—' }}</td>
+  <td>{{ (s.start_at or '—')[:10] }}</td><td>{{ (s.expiry_at or '—')[:10] }}</td>
+  <td>
+    <button onclick="updateSub({{ s.id }}, 'active')">활성</button>
+    <button onclick="updateSub({{ s.id }}, 'expired')">만료</button>
+    <button onclick="updateSub({{ s.id }}, 'canceled')">해지</button>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="10">구독 없음 — 계정 상세에서 부여하세요</td></tr>
+{% endfor %}
+</table>
+<p class="note" id="msg"></p>
+<script>
+async function updateSub(id, state) {
+  const r = await fetch(`/v1/ops/subscriptions/${id}`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({state})});
+  if (r.ok) location.reload();
+  else document.getElementById('msg').textContent = `실패: ${(await r.json()).detail}`;
+}
+</script>
+{% endblock %}

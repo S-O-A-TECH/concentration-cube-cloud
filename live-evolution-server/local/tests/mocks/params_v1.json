@@ -1,0 +1,78 @@
+{
+  "param_set_version": "proto-0.1.0",
+  "capture": {
+    "camera_index": 0,
+    "width": 1280,
+    "height": 720,
+    "target_fps": 30
+  },
+  "blink": {
+    "ear_close_th": 0.19,
+    "ear_open_th": 0.25,
+    "min_close_frames": 2,
+    "long_blink_ms": 400,
+    "openness_lo": 0.15,
+    "openness_hi": 0.30
+  },
+  "gaze": {
+    "offpage_prob_th_enter": 0.35,
+    "offpage_prob_th_exit": 0.55,
+    "offpage_min_sec": 2.0,
+    "onpage_min_sec": 1.0,
+    "page_margin": 0.12,
+    "prob_sigmoid_scale": 0.12,
+    "pose_offpage_yaw_deg": 28.0,
+    "pose_offpage_pitch_up_deg": 20.0
+  },
+  "calibration": {
+    "points": 4,
+    "countdown_sec": 1.5,
+    "dwell_sec": 2.0,
+    "min_samples_per_point": 12,
+    "max_residual": 0.22
+  },
+  "saccade": {
+    "velocity_th_units_per_s": 1.2,
+    "min_fixation_ms": 80
+  },
+  "rhythm": {
+    "line_progression_window_sec": 2.0,
+    "line_slope_min_units_per_s": 0.02,
+    "line_slope_max_units_per_s": 0.8,
+    "healthy_saccade_min_1s": 0.8,
+    "healthy_saccade_max_1s": 6.0
+  },
+  "blank_stare": {
+    "stare_dispersion_th": 0.035,
+    "max_saccade_count_1s": 0.5,
+    "min_sec": 8.0
+  },
+  "drowsy": {
+    "perclos_window_sec": 60,
+    "perclos_th": 0.25,
+    "eye_closed_openness": 0.2
+  },
+  "qc": {
+    "coverage_min": 0.70
+  },
+  "timeline": {
+    "min_segment_sec": 5.0
+  },
+  "sfi_weights": {
+    "gaze_on_page": 35,
+    "return_latency": 20,
+    "effort": 15,
+    "fatigue": 15,
+    "rhythm": 10,
+    "posture": 5
+  },
+  "scoring": {
+    "return_latency_good_sec": 5.0,
+    "return_latency_bad_sec": 30.0,
+    "offpage_rate_bad_per_10min": 6.0,
+    "posture_yaw_std_bad_deg": 12.0,
+    "posture_dist_std_bad_cm": 8.0,
+    "fatigue_perclos_bad": 0.35,
+    "confidence_high_coverage": 0.85
+  }
+}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>대시보드 <span class="note">전체 구독 상황 — 국가 카드를 클릭하면 기간별 → 계정으로 들어갑니다</span></h1>
+
+<div class="cards">
+  <div class="card">활성 구독<b>{{ data.subscriptions.active_total }}명</b></div>
+  <div class="card">서비스 국가<b>{{ data.subscriptions.countries | rejectattr('country', 'equalto', 'test') | list | length }}개국</b></div>
+  <div class="card">계정<b>{{ data.ops.accounts }}</b></div>
+  <div class="card">누적 세션<b>{{ data.ops.sessions }}</b></div>
+</div>
+
+<h2>국가별 구독</h2>
+<div class="cards">
+{% for c in data.subscriptions.countries %}
+  <a class="card" href="/ops/dashboard/{{ c.country }}"
+     style="text-decoration:none;color:inherit;cursor:pointer;min-width:230px">
+    {{ '🧪 테스트' if c.country == 'test' else '🌍 ' ~ c.name ~ ' (' ~ c.country ~ ')' }}
+    <b>{{ c.total }}명</b>
+    {% for m, label in [('2', '2개월'), ('4', '4개월'), ('6', '6개월'), ('12', '1년')] %}
+    <div class="comp"><span style="width:44px;font-size:12px">{{ label }}</span>
+      <div class="bar"><i style="width:{{ (c.by_months[m] / c.total * 100) if c.total else 0 }}%"></i></div>
+      <span style="width:30px;text-align:right;font-size:12px">{{ c.by_months[m] }}</span></div>
+    {% endfor %}
+  </a>
+{% else %}
+  <div class="card">활성 구독 없음<b>0</b><span class="note">계정 상세에서 구독을 부여하거나, 결제 웹훅(Google Play regionCode)이 들어오면 국가별로 집계됩니다</span></div>
+{% endfor %}
+</div>
+
+<p class="note" style="margin-top:16px">
+  채점 실패 {{ data.ops.scoring_failed }} 건 ·
+  {% if data.ops.pupil_alarms %}<span style="color:#c0392b">🚨 동공 누락 알람 {{ data.ops.pupil_alarms }}건</span>{% else %}🚨 동공 누락 알람 0건{% endif %} ·
+  <a href="/ops/sessions">세션 보기</a> ·
+  <a href="/ops/versions">엔진 버전 이력</a>
+</p>
+{% endblock %}

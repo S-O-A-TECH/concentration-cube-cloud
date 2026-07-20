@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>소비자(프로필) 관리{% if user_id %} — 계정 {{ user_id }}{% endif %}</h1>
+<table>
+<tr><th>ID</th><th>계정</th><th>닉네임</th><th>생년월일</th><th>삭제권</th></tr>
+{% for p in data.profiles %}
+<tr><td>{{ p.id }}</td><td>{{ p.user_id }}</td><td>{{ p.nickname }}</td>
+<td>{{ p.birth_date or '—' }}</td>
+<td><button onclick="delProfile({{ p.id }}, this)">삭제 요청</button></td></tr>
+{% else %}
+<tr><td colspan="5">프로필 없음</td></tr>
+{% endfor %}
+</table>
+<p class="note" id="msg"></p>
+<script>
+let pendingDel = null;
+async function delProfile(id, btn) {
+  const msg = document.getElementById('msg');
+  if (pendingDel !== id) {           // 2단 확인 (S6 §2.3)
+    pendingDel = id;
+    btn.textContent = '한 번 더 눌러 확정';
+    msg.textContent = `프로필 ${id} 삭제를 확정하려면 버튼을 한 번 더 누르세요.`;
+    return;
+  }
+  const r = await fetch('/v1/ops/privacy/delete_profile', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({profile_id: id, confirm: true})});
+  msg.textContent = r.ok ? `프로필 ${id} 삭제 잡 큐잉됨 (audit 기록)` : `실패: ${r.status}`;
+  if (r.ok) setTimeout(() => location.reload(), 800);
+}
+</script>
+{% endblock %}

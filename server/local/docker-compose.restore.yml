@@ -1,0 +1,16 @@
+# 복구 리허설 전용 오버라이드 (S7 §1.5) — 본 서버와 완전 분리된 프로젝트로 기동:
+#   docker compose -p cube-restore -f docker-compose.yml -f docker-compose.restore.yml up -d postgres redis api
+# 포트만 바꾸고(-p 로 볼륨·네트워크는 자동 분리) 나머지는 동일 구성.
+# 절차 전체는 RUNBOOK_복구.md 참조.
+services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:15433:5432"
+  redis:
+    ports: !override
+      - "127.0.0.1:16380:6379"
+  api:
+    ports: !override
+      - "127.0.0.1:18100:8100"
+    # 복구 환경에서는 마이그레이션·시드를 돌리지 않는다 — 덤프가 스키마+데이터 전부를 가져온다
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8100"]

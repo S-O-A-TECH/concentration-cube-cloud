@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검증 데이터 아카이브 — Live Evolution</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
+</head>
+<body>
+<main>
+  <h1>검증 데이터 아카이브</h1>
+  <p class="sub">과거 신호는 언제든 재활용됩니다 — 조회 전용 · <b>삭제 버튼은 없습니다</b> (제외 ≠ 삭제)</p>
+  <details class="help">
+    <summary>이 화면 사용법 — 모든 검증 세션의 영구 보관소</summary>
+    <div class="body">
+      검증 세션 콘솔에서 만든 세션이 전부 여기에 쌓입니다. 진화(evaluate·Evidence)는 이 아카이브
+      전체를 <b class="k">자동으로</b> 사용하므로, 세션을 골라 넣는 조작은 없습니다(공정성 보호).
+      <h4>표 읽는 법</h4>
+      <ul>
+        <li><b class="k">split</b> — train(연습장)/holdout(시험지) 자동 분할. 손댈 수 없습니다.</li>
+        <li><b class="k">라벨(방식)</b> — "실시간"만 연구 정답지로 인정됩니다(사후 라벨은 개발용).</li>
+        <li><b class="k">참여 세대</b> — 이 세션을 채점해 본 역대 기준의 수.</li>
+      </ul>
+      <h4>행을 클릭하면</h4>
+      <ul>
+        <li>판정 타임라인과 정답지가 나란히 — 엔진이 어디서 어긋났는지 눈으로 확인.</li>
+        <li><b class="k">"이 세션을 채점한 세대들"</b> — 같은 세션을 v1.0, gen2, gen3… 가 각각 어떻게
+          읽었는지 비교. 엔진이 세대를 거치며 나아지는 과정이 한 줄로 보입니다(데모·문서 소재).</li>
+        <li><b class="k">[연구 제외]</b> — 실수한 세션을 평가에서만 빼는 것(사유 필수, 복원 가능).
+          <span class="warn">삭제가 아닙니다</span> — 신호·라벨은 영구 보존.</li>
+      </ul>
+    </div>
+  </details>
+  <div class="card">
+    <div class="row" id="stats"></div>
+  </div>
+  <div class="card">
+    <div class="row">
+      <div><label class="fld">시작일</label><input type="text" id="f-from" placeholder="YYYY-MM-DD" style="width:130px"></div>
+      <div><label class="fld">종료일</label><input type="text" id="f-to" placeholder="YYYY-MM-DD" style="width:130px"></div>
+      <div><label class="fld">용도 (연습/시험)</label><select id="f-split" style="width:110px">
+        <option value="">전체</option><option value="train">연습용</option>
+        <option value="holdout">시험용</option></select></div>
+      <div><label class="fld">정답지 방식</label><select id="f-method" style="width:170px">
+        <option value="">전체</option><option value="realtime_instructed">실시간 지시</option>
+        <option value="retrospective">사후(개발용)</option></select></div>
+      <label class="row sub" style="align-self:flex-end;gap:6px">
+        <input type="checkbox" id="f-excl" checked style="width:auto"> 제외 세션 포함
+      </label>
+      <button class="small" style="align-self:flex-end" onclick="load()">적용</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="scroll-x"><table class="tbl" id="list"></table></div>
+  </div>
+  <div class="card" id="detail" style="display:none"></div>
+</main>
+<script src="/static/js/api.js"></script>
+<script>
+injectNav('/archive');
+let cur = null;
+
+async function load() {
+  const p = new URLSearchParams();
+  const v = (id) => document.getElementById(id).value.trim();
+  if (v('f-from')) p.set('date_from', v('f-from'));
+  if (v('f-to')) p.set('date_to', v('f-to'));
+  if (v('f-split')) p.set('split', v('f-split'));
+  if (v('f-method')) p.set('method', v('f-method'));
+  p.set('include_excluded', document.getElementById('f-excl').checked);
+  let d;
+  try { d = await api('/api/archive?' + p.toString()); }
+  catch (e) {
+    showErr(e);
+    document.getElementById('list').innerHTML =
+      `<tr><td class="sub">운영 서버에 연결되지 않았습니다 — ${esc(e.message)}</td></tr>`;
+    return;
+  }
+  const s = d.stats;
+  document.getElementById('stats').innerHTML =
+    `<span class="badge info">${term('session', '측정 세션')} ${s.total}회</span>
+     <span class="badge ok">${term('truth', '정답지')} ${s.labeled}개</span>
+     <span class="badge info">정답지 분량 ${s.label_minutes}분</span>
+     <span class="badge info">${term('train', '연습용')} ${s.train} · ${term('holdout', '시험용')} ${s.holdout}</span>
+     <span class="badge warn">${term('exclude', '연구 제외')} ${s.excluded}</span>
+     <span class="sub">기간 ${fmtDT(s.date_range[0])} ~ ${fmtDT(s.date_range[1])}</span>`;
+  document.getElementById('list').innerHTML =
+    `<tr><th>일시</th><th>기기</th><th>모드</th><th>프로토콜</th>
+     <th>${term('truth', '정답지')}</th><th>${term('train', '용도')}</th>
+     <th>${term('exclude', '제외')}</th><th title="이 세션을 채점해 본 판정 기준의 수">채점 기준 수</th></tr>` +
+    d.sessions.map((x) => `<tr class="click" onclick="showDetail('${esc(x.sid)}')">
+      <td><b>${fmtDT(x.started_at)}</b></td>
+      <td class="sub">${esc(x.device_id)}</td><td>${esc(x.mode)}</td>
+      <td class="sub">${esc(x.label?.protocol || '—')}</td>
+      <td>${x.labeled ? `<span class="badge ok">${x.label.method === 'realtime_instructed' ? '실시간 ✓' : '사후(개발용)'}</span>` : '<span class="sub">없음</span>'}</td>
+      <td>${x.split === 'holdout' ? '<span class="badge info">시험용</span>' : '<span class="badge ok">연습용</span>'}</td>
+      <td>${x.excluded ? `<span class="badge err" title="${esc(x.excluded_reason || '')}">제외</span>` : ''}</td>
+      <td class="num">${x.runs_count}</td></tr>`).join('');
+}
+
+async function showDetail(sid) {
+  let d;
+  try { d = await api('/api/archive/' + encodeURIComponent(sid)); }
+  catch (e) { showErr(e); return; }
+  cur = d;
+  const el = document.getElementById('detail');
+  el.style.display = '';
+  const view = d.view || {};
+  const dur = (d.meta || {}).duration_sec || 300;
+  el.innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">${fmtDT((d.meta || {}).started_at)} · ${esc((d.meta || {}).mode)}</h2>
+      <span class="sub mono">sid: ${esc(sid)}
+        <button class="small ghost" onclick="navigator.clipboard.writeText('${esc(sid)}');toast('복사됨')">복사</button></span>
+    </div>
+    <h2>판정 타임라인 (활성 ${esc((d.result || {}).param_set_version || '')})</h2>
+    <div class="timeline" id="tl-pred"></div>
+    <h2>정답지 (실시간 지시 — 편집 불가)</h2>
+    <div class="timeline" id="tl-truth"></div>
+    <div class="legend" id="lg"></div>
+    <h2>이 세션을 채점해 본 <i class="term" data-term="paramset">판정 기준</i>들 — 세대별 비교</h2>
+    <div class="scroll-x"><table class="tbl" id="runs"></table></div>
+    <div class="row" style="margin-top:12px">
+      ${view.excluded
+        ? '<button class="small ghost" onclick="restoreSid()">제외 해제</button>'
+        : '<button class="small danger ghost" onclick="excludeSid()">연구 제외</button>'}
+      <span class="sub">${view.excluded ? '제외 사유: ' + esc(view.excluded_reason || '') : ''}</span>
+    </div>`;
+  renderTimeline(document.getElementById('tl-pred'), (d.result || {}).timeline || [], dur);
+  renderTimeline(document.getElementById('tl-truth'),
+    ((d.labels || {}).segments || []).map((s) => ({ ...s, state: s.label })), dur);
+  renderLegend(document.getElementById('lg'));
+  document.getElementById('runs').innerHTML =
+    `<tr><th>${term('paramset', '판정 기준')}</th><th>엔진</th><th>SFI</th>
+     <th>집중 ${term('sens', '민감도')}</th><th>이탈 ${term('sens', '민감도')}</th>
+     <th>멍때림 ${term('sens', '민감도')}</th><th>채점 시각</th></tr>` +
+    (d.runs || []).map((r) => `<tr>
+      <td><b>${esc(r.param_set_version)}</b></td><td class="sub">${esc(r.engine_version)}</td>
+      <td class="num">${r.sfi ?? '—'}</td>
+      <td class="num">${pct(r.per_state?.focus?.sens)}</td>
+      <td class="num">${pct(r.per_state?.off_task?.sens)}</td>
+      <td class="num">${pct(r.per_state?.blank_stare?.sens)}</td>
+      <td class="sub">${fmtDT(r.run_at)}</td></tr>`).join('');
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function excludeSid() {
+  const reason = await promptModal({ title: '연구 제외', danger: true, confirmText: '제외',
+    body: '평가·Evidence 에서만 빠집니다. 신호·라벨은 아카이브에 영구 보존됩니다 (삭제 아님).' });
+  if (reason == null) return;
+  try { await post(`/api/archive/${encodeURIComponent(cur.sid)}/exclude`, { reason });
+    toast('제외했습니다'); await load(); await showDetail(cur.sid); } catch (e) { showErr(e); }
+}
+async function restoreSid() {
+  const reason = await promptModal({ title: '제외 해제', confirmText: '복원',
+    body: '이 세션을 다시 평가 대상에 포함합니다 (audit 기록).' });
+  if (reason == null) return;
+  try { await post(`/api/archive/${encodeURIComponent(cur.sid)}/restore`, { reason });
+    toast('복원했습니다'); await load(); await showDetail(cur.sid); } catch (e) { showErr(e); }
+}
+load().then(() => { const sid = qs('sid'); if (sid) showDetail(sid); });
+</script>
+</body>
+</html>

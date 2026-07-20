@@ -1,0 +1,56 @@
+# ---- secrets: never commit ----------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.cloud.example
+*.pem
+*.key
+credentials.json
+
+# ---- python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- session data & runtime state ---------------------------------------
+data/
+storage/
+backups/
+state/
+*.parquet
+*.sqlite
+*.sqlite3
+*.db
+*.log
+logs/
+
+# ---- node ---------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ---- editors / os -------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- agent tooling scratch ----------------------------------------------
+.omc/
+.remember/
+.agents/
+.codex/

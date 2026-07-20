@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>계정 #{{ data.id }} — {{ data.email or '—' }}</h1>
+<p class="note">
+  가입 {{ data.created_at[:16] }} · 경로 {{ data.auth_provider or '—' }} ·
+  <a href="/ops/users">← 계정 목록</a> ·
+  <button onclick="reissueAppToken()">앱 토큰 재발급</button>
+</p>
+<div id="tokenBox" style="display:none">
+  <p class="note">⚠ app_token 은 지금 1회만 표시됩니다.</p>
+  <pre class="tok" id="tokenOut"></pre>
+</div>
+
+<h2>구독</h2>
+<table>
+<tr><th>ID</th><th>상품</th><th>상태</th><th>출처</th><th>시작</th><th>만료</th><th>변경</th></tr>
+{% for s in data.subscriptions %}
+<tr>
+  <td>{{ s.id }}</td><td>{{ s.product }}</td><td>{{ s.state }}</td><td>{{ s.source or '—' }}</td>
+  <td>{{ (s.start_at or '—')[:10] }}</td><td>{{ (s.expiry_at or '—')[:10] }}</td>
+  <td>
+    <button onclick="updateSub({{ s.id }}, 'active')">활성</button>
+    <button onclick="updateSub({{ s.id }}, 'expired')">만료</button>
+    <button onclick="extendSub({{ s.id }})">+12개월</button>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="7">구독 없음</td></tr>
+{% endfor %}
+</table>
+<p>
+  구독 부여:
+  <select id="subState"><option>active</option><option>trial</option></select>
+  <select id="subMonths"><option value="2">2개월</option><option value="4">4개월</option>
+    <option value="6">6개월</option><option value="12" selected>12개월</option></select>
+  <button onclick="grantSub()">부여</button>
+</p>
+
+<h2>기기 바인딩 (무제한)</h2>
+<table>
+<tr><th>시리얼</th><th>기본 프로필</th><th>FW</th></tr>
+{% for d in data.devices %}
+<tr><td>{{ d.serial }}</td>
+    <td>{% for p in data.profiles %}{% if p.id == d.default_profile_id %}{{ p.nickname }}{% endif %}{% endfor %}
+        {{ '' if d.default_profile_id else '—' }}</td>
+    <td>{{ d.fw_ver or '—' }}</td></tr>
+{% else %}
+<tr><td colspan="3">바인딩된 기기 없음</td></tr>
+{% endfor %}
+</table>
+<p>
+  바인딩:
+  <select id="bindDevice">
+    {% for d in all_devices %}<option value="{{ d.id }}">{{ d.serial }}</option>{% endfor %}
+  </select>
+  →
+  <select id="bindProfile">
+    {% for p in data.profiles %}<option value="{{ p.id }}">{{ p.nickname }}</option>{% endfor %}
+  </select>
+  <button onclick="bindDevice()">이 계정에 바인딩</button>
+  <span class="note">바인딩 후 그 기기의 새 세션은 선택한 학생 프로필로 귀속됩니다.</span>
+</p>
+
+<h2>학생 프로필 ({{ data.profiles|length }}/{{ data.profile_limit }})</h2>
+{% if data.profiles|length < data.profile_limit %}
+<p>
+  <input id="nickname" placeholder="이름/별명" style="width:140px">
+  <input id="birth" type="date">
+  <button onclick="createProfile()">프로필 추가</button>
+</p>
+{% endif %}
+
+{% for p in data.profiles %}
+<h3>👤 {{ p.nickname }} {% if p.birth_date %}<span class="note">({{ p.birth_date }})</span>{% endif %}</h3>
+<table>
+<tr><th>시각</th><th>모드</th><th>기기</th><th>SFI</th><th>엔진</th><th>QC</th><th>채점</th></tr>
+{% for s in p.sessions %}
+<tr>
+  <td><a href="/ops/sessions/{{ s.sid }}">{{ s.display or s.sid[:8] }}</a></td>
+  <td>{{ s.mode }}</td>
+  <td>{{ s.device_serial }}</td>
+  <td>{{ s.sfi if s.sfi is not none else '—' }}</td>
+  <td>{{ s.engine or '—' }}</td>
+  <td>{% if s.qc_flags %}⚠ {{ s.qc_flags|join(', ') }}{% else %}✓{% endif %}</td>
+  <td>{{ s.scoring_state }}</td>
+</tr>
+{% else %}
+<tr><td colspan="7">데이터 없음 — 기기를 이 프로필에 바인딩하면 세션이 여기 쌓입니다</td></tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="note">프로필 없음 — 위에서 학생 프로필을 추가하세요.</p>
+{% endfor %}
+
+<p class="note" id="msg"></p>
+<script>
+const UID = {{ data.id }};
+function fail(b) { document.getElementById('msg').textContent = `실패: ${b.detail}`; }
+async function post(url, body) {
+  const r = await fetch(url, {method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: body ? JSON.stringify(body) : null});
+  const b = await r.json();
+  if (!r.ok) { fail(b); return null; }
+  return b;
+}
+async function reissueAppToken() {
+  const b = await post(`/v1/ops/users/${UID}/app_token`);
+  if (b) {
+    document.getElementById('tokenBox').style.display = '';
+    document.getElementById('tokenOut').textContent = `app_token: ${b.app_token}`;
+  }
+}
+async function createProfile() {
+  const birth = document.getElementById('birth').value;
+  const b = await post(`/v1/ops/users/${UID}/profiles`,
+    {nickname: document.getElementById('nickname').value,
+     birth_date: birth || null});
+  if (b) location.reload();
+}
+async function bindDevice() {
+  const b = await post(`/v1/ops/devices/${document.getElementById('bindDevice').value}/bind`,
+    {user_id: UID,
+     default_profile_id: parseInt(document.getElementById('bindProfile').value)});
+  if (b) location.reload();
+}
+async function grantSub() {
+  const b = await post('/v1/ops/subscriptions',
+    {user_id: UID, state: document.getElementById('subState').value,
+     months: parseInt(document.getElementById('subMonths').value)});
+  if (b) location.reload();
+}
+async function updateSub(id, state) {
+  const b = await post(`/v1/ops/subscriptions/${id}`, {state});
+  if (b) location.reload();
+}
+async function extendSub(id) {
+  const b = await post(`/v1/ops/subscriptions/${id}`, {extend_months: 12});
+  if (b) location.reload();
+}
+</script>
+{% endblock %}

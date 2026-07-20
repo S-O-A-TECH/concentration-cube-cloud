@@ -1,0 +1,161 @@
+# concentration-cube — Alibaba Cloud ECS 단일 호스트 배포 (운영 서버 + 자가진화 서버)
+#
+# 로컬용 server/local/docker-compose.yml 과의 차이 (이 파일은 클라우드 전용, 로컬 파일은 건드리지 않는다):
+#   1) api/evolution 을 0.0.0.0 에 바인딩 — 외부(보안그룹 허용 IP)에서 접근 가능
+#   2) postgres/redis 는 포트를 아예 발행하지 않는다 — 컨테이너 네트워크 내부 전용
+#   3) 시크릿에 기본값을 주지 않는다 — ${VAR:?...} 로 미설정 시 기동 자체를 실패시킨다
+#   4) live-evolution 서버(8200)를 같은 네트워크에 올려 SERVER_URL=http://api:8100 로 직결
+#
+# 사용:  docker compose -f docker-compose.cloud.yml --env-file .env up -d --build
+name: concentration-cube-cloud
+
+# ── 운영 서버(api/worker/scheduler) 공통 환경 ──────────────────────────────
+# 시크릿은 :? 로 필수화 — .env 에 값이 없으면 compose 가 즉시 멈춘다(안전한 기본값이란 없다).
+x-app-env: &app-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER 를 .env 에 설정하세요}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB 를 .env 에 설정하세요}
+  REDIS_URL: redis://redis:6379/0
+  STORAGE_ROOT: /data/storage
+  APP_VERSION: ${APP_VERSION:-cloud}
+  OPS_ADMIN_ID: ${OPS_ADMIN_ID:?OPS_ADMIN_ID 를 .env 에 설정하세요}
+  OPS_ADMIN_PW: ${OPS_ADMIN_PW:?OPS_ADMIN_PW 를 .env 에 설정하세요}
+  EVOLUTION_TOKEN: ${EVOLUTION_TOKEN:?EVOLUTION_TOKEN 을 .env 에 설정하세요 (두 서버가 공유)}
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 을 .env 에 설정하세요}
+  LLM_REPORT_ENABLED: ${LLM_REPORT_ENABLED:-true}
+  QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY 를 .env 에 설정하세요}
+  QWEN_BASE_URL: ${QWEN_BASE_URL:?QWEN_BASE_URL 을 .env 에 설정하세요 (워크스페이스 전용 URL)}
+  # 코치 역할 — 3개국어 리포트. 진화 서버와 다른 모델을 써서 모델별 무료 쿼터를 분산한다.
+  QWEN_MODEL: ${QWEN_COACH_MODEL:-qwen3.7-plus}
+
+x-log-rotate: &log-rotate
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  # ── 데이터 계층 — 호스트 포트 발행 없음 = 인터넷에서 도달 불가 ──────────────
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # ports 를 의도적으로 두지 않는다. 디버깅이 필요하면 SSH 터널을 쓴다:
+    #   ssh -L 5433:localhost:5433 ubuntu@<EIP>  +  아래 한 줄 임시 추가
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *log-rotate
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    # ports 없음 — 인증 없는 redis 를 절대 외부에 열지 않는다.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *log-rotate
+
+  # ── 운영 서버 API (8100) — 외부 공개 ────────────────────────────────────
+  api:
+    build: ../../server/local
+    restart: unless-stopped
+    # 기동 시 마이그레이션 자동 적용 + 멱등 시드 (S1 구현계획 §1.2)
+    command: ["sh", "-c", "alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port 8100"]
+    environment: *app-env
+    volumes:
+      - storage:/data/storage
+    ports:
+      - "0.0.0.0:8100:8100"   # 보안그룹에서 8100 을 연 IP 만 도달한다
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s   # 마이그레이션+시드 시간 확보
+    logging: *log-rotate
+
+  worker:
+    build: ../../server/local
+    restart: unless-stopped
+    command: ["rq", "worker", "scoring", "--url", "redis://redis:6379/0"]
+    environment: *app-env
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *log-rotate
+
+  # 정리 잡 주기 실행 (S7 §1.3) — open 24h 초과 세션 failed 처리 등
+  scheduler:
+    build: ../../server/local
+    restart: unless-stopped
+    command: ["python", "-m", "app.jobs.maintenance", "--loop", "3600"]
+    environment: *app-env
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *log-rotate
+
+  # ── 자가진화 서버 (8200) — 외부 공개 ────────────────────────────────────
+  evolution:
+    build: ../../live-evolution-server/local
+    restart: unless-stopped
+    environment:
+      # 컨테이너 네트워크 내부 DNS 로 운영 서버 직결 (127.0.0.1 아님)
+      SERVER_URL: http://api:8100
+      EVOLUTION_TOKEN: ${EVOLUTION_TOKEN:?}
+      ADMIN_ID: ${EVO_ADMIN_ID:?EVO_ADMIN_ID 를 .env 에 설정하세요}
+      ADMIN_PW: ${EVO_ADMIN_PW:?EVO_ADMIN_PW 를 .env 에 설정하세요}
+      # 웹캠 프로토는 ECS 에 없다. 런타임 코드는 이 경로를 읽지 않고
+      # tests/test_sim_sync.py 만 참조하며 경로가 없으면 skip 한다 → 마운트 불필요.
+      WEBCAM_ROOT: /opt/webcam-proto-absent
+      # 실기기(웹캠 8123)도 없다. _device_status() 가 DeviceError 를 잡아
+      # {"ok": false} 로 표시할 뿐 서버는 정상 동작한다.
+      DEVICE_URL: ${DEVICE_URL:-http://127.0.0.1:8123}
+      AGENT_DEFAULT: ${AGENT_DEFAULT:-qwen}
+      AGENT_TIMEOUT_SEC: ${AGENT_TIMEOUT_SEC:-600}
+      DAILY_RUN_LIMIT: ${DAILY_RUN_LIMIT:-20}
+      TRIGGER_N: ${TRIGGER_N:-5}
+      # 비우면 최초 기동 시 자동 생성되어 state 볼륨의 secret.key 로 보존된다.
+      SECRET_KEY: ${EVO_SECRET_KEY:-}
+      QWEN_API_KEY: ${QWEN_API_KEY:?}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:?}
+      # 제안자 역할 — 파라미터 개선 추론. 플래그십(max)을 쓰고 쿼터 풀도 코치와 분리된다.
+      QWEN_MODEL: ${QWEN_EVOLVE_MODEL:-qwen3.7-max}
+      LEV_STATE_DIR: /data/state
+    volumes:
+      # state.sqlite·secret.key·workspaces 보존 — 없으면 재배포마다 진화 이력이 날아간다.
+      - evostate:/data/state
+    ports:
+      - "0.0.0.0:8200:8200"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8200/api/health', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging: *log-rotate
+
+volumes:
+  pgdata:
+  storage:
+  evostate:

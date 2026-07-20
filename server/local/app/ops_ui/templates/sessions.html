@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>세션 운영 뷰</h1>
+<form method="get" action="/ops/sessions">
+  상태 <select name="state">
+    <option value="" {{ 'selected' if not f_state }}>전체</option>
+    {% for s in ('open', 'complete', 'failed') %}
+    <option value="{{ s }}" {{ 'selected' if f_state == s }}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  무결성 <select name="count_match">
+    <option value="" {{ 'selected' if not f_count_match }}>전체</option>
+    <option value="true" {{ 'selected' if f_count_match == 'true' }}>일치</option>
+    <option value="false" {{ 'selected' if f_count_match == 'false' }}>실패</option>
+  </select>
+  기기 <select name="device">
+    <option value="" {{ 'selected' if not f_device }}>전체</option>
+    {% for d in devices %}
+    <option value="{{ d.serial }}" {{ 'selected' if f_device == d.serial }}>{{ d.serial }}{{ ' (웹캠 테스트)' if 'WEBCAM' in d.serial }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">필터</button>
+</form>
+<table>
+<tr><th>세션</th><th>기기</th><th>모드</th><th>업로드</th><th>무결성</th><th>채점</th><th>coverage</th><th>SFI</th><th>리포트</th><th>재채점</th></tr>
+{% for s in data.sessions %}
+<tr>
+  <td title="{{ s.sid }}">{{ s.display or s.sid[:8] }}</td>
+  <td>{{ s.device_serial }}</td><td>{{ s.mode }}</td>
+  <td><span class="badge {{ 'ok' if s.upload_state == 'complete' else 'warn' }}">{{ s.upload_state }}</span></td>
+  <td>{% if s.count_match is none %}—{% elif s.count_match %}<span class="badge ok">일치</span>{% else %}<span class="badge err">실패</span>{% endif %}</td>
+  <td><span class="badge {{ 'ok' if s.scoring_state == 'done' else ('err' if s.scoring_state == 'failed' else '') }}">{{ s.scoring_state }}</span></td>
+  <td>{{ '%.0f%%' % (s.coverage * 100) if s.coverage is not none else '—' }}</td>
+  <td>{{ s.sfi if s.sfi is not none else '—' }}</td>
+  <td><a href="/ops/sessions/{{ s.sid }}">보기</a></td>
+  <td><button onclick="rescore('{{ s.sid }}', this)">재채점</button></td>
+</tr>
+{% else %}
+<tr><td colspan="10">세션 없음</td></tr>
+{% endfor %}
+</table>
+<p class="note" id="msg"></p>
+<script>
+async function rescore(sid, btn) {
+  btn.disabled = true;
+  const r = await fetch(`/v1/ops/sessions/${sid}/rescore`, {method: 'POST'});
+  document.getElementById('msg').textContent =
+    r.ok ? `${sid.slice(0, 8)}… 재채점 큐잉됨` : `실패: ${r.status}`;
+  setTimeout(() => location.reload(), 1200);
+}
+</script>
+{% endblock %}

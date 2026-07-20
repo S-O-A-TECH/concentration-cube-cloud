@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>수면세션 음성 배포
+  <span class="note">단계별 대사를 '깨끗한 음성 mp3'로 갈아끼웁니다 — 앱 업데이트 없이</span>
+</h1>
+<p class="note">
+  운영자가 각 단계 대사를 mp3 로 업로드하고 배포일을 지정하면, 앱이 배포일부터 그 음성을
+  내려받아 폰 TTS 대신 재생합니다. 배포된 릴리즈는 수정할 수 없고, 대사 교체는 새 draft 로만 합니다.
+  짧은 버전과 긴 버전(5분)은 서로 독립적으로 배포됩니다.
+</p>
+
+{% for sec in data.protocols %}
+<hr style="margin:28px 0 8px; border:none; border-top:2px solid var(--line)">
+<h1 style="font-size:18px">{{ sec.label }}
+  <span class="note">{{ '슬롯 4개' if sec.key == 'short' else '슬롯 7개 · 5분 · 음악 시퀀스' }}</span>
+</h1>
+
+{% set active = (sec.releases | selectattr('is_active') | list | first) %}
+<h2>현재 배포 중</h2>
+{% if active %}
+<table>
+<tr><th>단계</th><th>대사 슬롯</th><th>음성</th></tr>
+{% for s in sec.slots %}
+<tr>
+  <td><b>{{ s.label }}</b> <span class="note">({{ s.key }})</span></td>
+  <td>{% if active.slots[s.key] %}<span class="badge ok">업로드됨</span>{% else %}<span class="badge">없음(TTS 유지)</span>{% endif %}</td>
+  <td>{% if active.slots[s.key] %}
+    <audio controls preload="none" src="/v1/ops/relax_voice/{{ active.id }}/{{ s.key }}.mp3"></audio>
+    {% else %}—{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+<p class="note">릴리즈 #{{ active.id }} · 배포일(KST) {{ (active.release_at or '')[:10] }}
+  {% if active.note %}· {{ active.note }}{% endif %}</p>
+{% else %}
+<p class="note">현재 배포 중인 음성이 없습니다 — 앱은 폰 TTS 로 진행합니다.</p>
+{% endif %}
+
+<h2>작성 중(draft)</h2>
+{% set drafts = (sec.releases | selectattr('status', 'equalto', 'draft') | list) %}
+{% for r in drafts %}
+<div class="card" style="min-width:100%; margin-bottom:12px">
+  <h3 style="margin-top:0">draft #{{ r.id }}{% if r.note %} <span class="note">{{ r.note }}</span>{% endif %}</h3>
+  <table>
+  <tr><th>단계</th><th>업로드(mp3)</th><th>미리듣기</th></tr>
+  {% for s in sec.slots %}
+  <tr>
+    <td><b>{{ s.label }}</b> <span class="note">({{ s.key }})</span></td>
+    <td>
+      <input type="file" accept="audio/mpeg,audio/*" id="f_{{ r.id }}_{{ s.key }}">
+      <button onclick="uploadSlot({{ r.id }}, '{{ s.key }}')">업로드</button>
+      {% if r.slots[s.key] %}<span class="badge ok">있음</span>{% endif %}
+    </td>
+    <td>{% if r.slots[s.key] %}
+      <audio controls preload="none" src="/v1/ops/relax_voice/{{ r.id }}/{{ s.key }}.mp3"></audio>
+      {% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </table>
+  <p>
+    배포일 지정:
+    <input type="date" id="d_{{ r.id }}">
+    <button onclick="publishRelease({{ r.id }})">이 날짜로 배포</button>
+    <span class="note">지정한 날짜의 한국시간(KST) 0시부터 앱에 배포됩니다. 배포 후에는 수정할 수 없습니다.</span>
+  </p>
+</div>
+{% else %}
+<p class="note">작성 중인 draft 가 없습니다.</p>
+{% endfor %}
+
+<p><button onclick="newDraft('{{ sec.key }}')">+ 새 draft 만들기 ({{ sec.label }})</button></p>
+
+<h2>배포 이력</h2>
+<table>
+<tr><th>#</th><th>상태</th><th>배포일(KST)</th><th>업로드된 슬롯</th><th>메모</th></tr>
+{% for r in sec.releases %}
+<tr>
+  <td>{{ r.id }}</td>
+  <td>{% if r.is_active %}<span class="badge ok">배포 중</span>
+      {% elif r.status == 'published' %}<span class="badge">배포됨</span>
+      {% else %}<span class="badge warn">draft</span>{% endif %}</td>
+  <td>{{ (r.release_at or '—')[:10] }}</td>
+  <td>{% for s in sec.slots %}{% if r.slots[s.key] %}{{ s.label }} {% endif %}{% endfor %}</td>
+  <td>{{ r.note or '—' }}</td>
+</tr>
+{% else %}
+<tr><td colspan="5">릴리즈 없음</td></tr>
+{% endfor %}
+</table>
+
+{% if sec.key == 'long' %}
+<h2>시퀀스 편집 <span class="note">긴 버전의 단계 길이·배경 음악 (저장 즉시 앱에 반영)</span></h2>
+<p class="note">
+  단계 종류·순서·대사 텍스트는 여기서 바꾸지 않습니다(음성 mp3 는 위에서 교체). 호흡 단계는 길이를
+  숨쉬기 횟수로 환산해 저장하므로 10초 단위로 맞춰집니다. "이어서(변경 없음)"는 직전 단계의 음악을
+  그대로 이어 갑니다.
+</p>
+<table id="seqTable">
+<tr><th>#</th><th>단계</th><th>종류</th><th>길이(초)</th><th>배경 음악</th></tr>
+{% for row in long_protocol.rows %}
+<tr>
+  <td>{{ row.index + 1 }}</td>
+  <td><b>{{ row.label }}</b></td>
+  <td><span class="note">{{ row.kind }}{% if row.is_breathing %} · 10초/회{% endif %}</span></td>
+  <td><input type="number" min="0" max="3600" step="{{ 10 if row.is_breathing else 1 }}"
+             value="{{ row.seconds }}" id="seq_sec_{{ row.index }}" style="width:80px"></td>
+  <td>
+    <select id="seq_music_{{ row.index }}">
+      {% for opt in long_protocol.music_options %}
+      <option value="{{ opt }}"{% if opt == row.music %} selected{% endif %}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+  </td>
+</tr>
+{% endfor %}
+</table>
+<p>
+  <button onclick="saveSequence()">시퀀스 저장</button>
+  <span class="note">총 {{ long_protocol.rows | length }}단계 · 현재 합계
+    {{ long_protocol.rows | sum(attribute='seconds') }}초</span>
+</p>
+{% endif %}
+{% endfor %}
+
+<p class="note" id="msg"></p>
+<script>
+const SEQ_COUNT = {{ long_protocol.rows | length }};
+function fail(b) { document.getElementById('msg').textContent = `실패: ${(b && b.detail) || '오류'}`; }
+
+async function newDraft(protocol) {
+  const note = prompt(`메모(선택) — 이 배포의 설명 [${protocol}]`, '');
+  if (note === null) return;
+  const r = await fetch('/v1/ops/relax_voice/releases', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({note, protocol})});
+  const b = await r.json();
+  if (!r.ok) return fail(b);
+  location.reload();
+}
+
+async function uploadSlot(id, slot) {
+  const input = document.getElementById(`f_${id}_${slot}`);
+  if (!input.files || !input.files.length) {
+    document.getElementById('msg').textContent = 'mp3 파일을 먼저 선택하세요';
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  const r = await fetch(`/v1/ops/relax_voice/releases/${id}/upload/${slot}`, {
+    method: 'POST', body: fd});
+  const b = await r.json();
+  if (!r.ok) return fail(b);
+  location.reload();
+}
+
+async function publishRelease(id) {
+  const date = document.getElementById(`d_${id}`).value;
+  if (!date) { document.getElementById('msg').textContent = '배포일을 선택하세요'; return; }
+  if (!confirm(`${date} (KST 0시)부터 배포합니다. 배포 후에는 수정할 수 없습니다. 진행할까요?`)) return;
+  const r = await fetch(`/v1/ops/relax_voice/releases/${id}/publish`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({release_date: date})});
+  const b = await r.json();
+  if (!r.ok) return fail(b);
+  location.reload();
+}
+
+async function saveSequence() {
+  const steps = [];
+  for (let i = 0; i < SEQ_COUNT; i++) {
+    steps.push({
+      seconds: parseInt(document.getElementById(`seq_sec_${i}`).value, 10),
+      music: document.getElementById(`seq_music_${i}`).value,
+    });
+  }
+  const r = await fetch('/v1/ops/relax_voice/long_protocol', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({steps})});
+  const b = await r.json();
+  if (!r.ok) return fail(b);
+  location.reload();
+}
+</script>
+{% endblock %}

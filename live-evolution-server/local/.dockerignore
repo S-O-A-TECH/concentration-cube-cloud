@@ -1,0 +1,15 @@
+# 빌드 컨텍스트 축소 — .venv 는 수백 MB 라 반드시 제외한다.
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.omc/
+.remember/
+
+# 시크릿·런타임 상태는 이미지에 절대 넣지 않는다 (env 와 볼륨으로 주입).
+.env
+state/
+
+# 테스트 픽스처(데모 세션)는 런타임에 불필요
+tests/

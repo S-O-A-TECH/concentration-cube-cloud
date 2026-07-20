@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진화 실행 — Live Evolution</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129516;</text></svg>">
+</head>
+<body>
+<main>
+  <h1>진화 실행</h1>
+  <p class="sub">① 증거 수집 → ② AI 제안 → ③ 사람 검토 → ④ 후보 등록 → ⑤ 게이트 시험 — 채택은 성적표 화면의 사람 버튼으로만</p>
+  <details class="help">
+    <summary>이 화면 사용법 — AI 제안 1세대를 돌리는 곳</summary>
+    <div class="body">
+      <h4>실행 조건</h4>
+      <ul>
+        <li>정답지(실시간 라벨) <b class="k">10개 이상</b> + 운영 서버(mock) 연결 + 에이전트 1개 연결.
+          조건이 안 되면 실행 버튼이 꺼지고 이유가 표시됩니다.</li>
+      </ul>
+      <h4>단계별로 벌어지는 일</h4>
+      <ul>
+        <li><b class="k">COLLECT</b> — 오답노트·피처 분포 등 증거 7종을 수집해 AI 작업장을 만듭니다.
+          holdout 은 물리적으로 제외.</li>
+        <li><b class="k">PROPOSE</b> — 에이전트가 증거를 읽고, 연습장(simulate)으로 스스로 시험하며
+          개선안 1개를 만듭니다. <span class="warn">보통 3~8분</span> — 이 화면을 떠나도 계속 진행되고,
+          돌아오면 이어서 보입니다.</li>
+        <li><b class="k">REVIEW_DIFF</b> — 사람 검토 차례. <b>변경 표</b>(무엇을 얼마로)·<b>진단</b>(왜)·
+          <b>자가시험</b>(train before→after)을 읽고 [후보 등록] 또는 [폐기].
+          제출물은 이미 4중 검증(자가시험 재계산 대조 포함)을 통과한 것만 올라옵니다.</li>
+        <li><b class="k">REGISTERED → EVALUATING</b> — 자동. 운영 서버가 train+holdout 을 재채점해
+          게이트를 판정합니다.</li>
+        <li><b class="k">PASSED / REJECTED</b> — 통과면 [성적표 검토 →]로, 기각이면 [기각 확정].
+          기각도 기록으로 남아 다음 세대의 교훈이 됩니다.</li>
+      </ul>
+      <h4>실패(FAILED)가 떠도 당황하지 않기</h4>
+      <ul>
+        <li>검증 기각·타임아웃 시 자동으로 피드백을 붙여 최대 3회 재시도한 결과입니다.
+          아래 원문(에이전트가 실제로 말한 것)을 열어 원인을 확인하고, [정리] 후 다시 실행하면 됩니다.</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="card">
+    <div class="stepper" id="stepper"></div>
+    <div class="row" id="run-row">
+      <div><label class="fld">에이전트</label><select id="agent"></select></div>
+      <button id="btn-run" style="align-self:flex-end">🧬 진화 1회 실행</button>
+      <span class="sub" id="estimate" style="align-self:flex-end"></span>
+    </div>
+    <p class="sub" id="cannot" style="color:var(--bad)"></p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">진행 로그</h2>
+    <div class="log-stream" id="log"></div>
+  </div>
+
+  <!-- REVIEW_DIFF -->
+  <div class="card" id="diff-card" style="display:none">
+    <h2 style="margin-top:0">③ 사람 검토 — AI가 제안한 <i class="term" data-term="paramset">판정 기준</i> 변경</h2>
+    <div id="diagnosis" class="kv" style="margin-bottom:12px"></div>
+    <div class="scroll-x"><table class="tbl" id="changes"></table></div>
+    <h2>자가시험 (train — 재계산 대조 통과분)</h2>
+    <div class="scroll-x"><table class="tbl" id="selftest"></table></div>
+    <div class="kv" style="margin-top:12px" id="risk"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="btn-register">후보 등록 → 자동 evaluate</button>
+      <button id="btn-dismiss" class="danger ghost">폐기</button>
+    </div>
+  </div>
+
+  <!-- 종결 상태 -->
+  <div class="card" id="final-card" style="display:none">
+    <div id="final-body"></div>
+    <div class="row" style="margin-top:12px" id="final-actions"></div>
+  </div>
+
+  <!-- FAILED 원문 -->
+  <div class="card" id="fail-card" style="display:none">
+    <h2 style="margin-top:0">에이전트 원문 (FAILED — agent_runs 보존분)</h2>
+    <div id="fail-runs"></div>
+  </div>
+</main>
+<script src="/static/js/api.js"></script>
+<script>
+injectNav('/evolve');
+const STEPS = ['COLLECT', 'PROPOSE', 'REVIEW_DIFF', 'REGISTERED', 'EVALUATING'];
+let st = null;
+
+function renderStepper(state) {
+  const idx = STEPS.indexOf(state);
+  document.getElementById('stepper').innerHTML = STEPS.map((s, i) => {
+    const cls = s === state ? 'on' : (idx > i || ['PASSED', 'REJECTED'].includes(state)) ? 'done' : '';
+    return `<span class="${cls}" title="${s}">${esc(loopStateKo(s))}</span>`;
+  }).join('') + (['PASSED', 'REJECTED', 'FAILED'].includes(state)
+    ? `<span class="${state === 'PASSED' ? 'done' : 'on'}" title="${state}">${esc(loopStateKo(state))}</span>` : '');
+}
+
+function renderDiff() {
+  const p = st.proposal;
+  if (!p) return;
+  document.getElementById('diagnosis').innerHTML =
+    `<b>진단</b><span>${esc(p.diagnosis)}</span>
+     <b>근거 요약</b><span>${esc(p.rationale)}</span>`;
+  document.getElementById('changes').innerHTML =
+    '<tr><th>키</th><th>현재값</th><th></th><th>제안값</th><th>에이전트의 근거</th></tr>' +
+    p.changes.map((c) => `<tr><td class="mono">${esc(c.key)}</td>
+      <td class="num">${esc(c.from)}</td><td>→</td>
+      <td class="num" style="font-weight:700">${esc(c.to)}</td>
+      <td class="sub">${esc(c.reason)}</td></tr>`).join('');
+  const states = ['focus', 'off_task', 'blank_stare'];
+  const stt = p.self_test || {};
+  const cell = (b, a) => {
+    if (b == null || a == null) return '<td class="num">—</td>';
+    const d = a - b;
+    const cls = d > 0.0005 ? 'delta-up' : d < -0.0005 ? 'delta-down' : '';
+    return `<td class="num">${pct(b)} → <span class="${cls}">${pct(a)}</span></td>`;
+  };
+  document.getElementById('selftest').innerHTML =
+    '<tr><th>상태</th><th>민감도 before→after</th><th>특이도 before→after</th></tr>' +
+    states.map((s) => `<tr><td>${STATE_LABEL[s]}</td>` +
+      cell((stt.train_before?.[s] || {}).sens, (stt.train_after?.[s] || {}).sens) +
+      cell((stt.train_before?.[s] || {}).spec, (stt.train_after?.[s] || {}).spec) + '</tr>').join('');
+  document.getElementById('risk').innerHTML =
+    `<b>리스크</b><span>${esc(p.risk)}</span>
+     <b>simulate 실행</b><span>${esc((stt.n_simulate_runs ?? '—'))}회 (에이전트 자가 루프)</span>`;
+}
+
+async function renderFailRuns() {
+  if (!st.gen_id) return;
+  try {
+    const d = await api('/api/generations/' + encodeURIComponent(st.gen_id));
+    const el = document.getElementById('fail-runs');
+    el.innerHTML = '';
+    d.agent_runs.forEach((r) => {
+      const div = document.createElement('div');
+      div.innerHTML = `<p class="sub">시도 ${r.attempt} · exit=${esc(r.exit_code)} · ${esc(r.error || '')}</p>`;
+      const pre = document.createElement('pre'); pre.className = 'mono';
+      pre.textContent = (r.stdout || '') + (r.stderr ? '\n--- stderr ---\n' + r.stderr : '');
+      div.appendChild(pre);
+      el.appendChild(div);
+    });
+  } catch (e) {}
+}
+
+async function poll() {
+  try { st = await api('/api/loop'); } catch (e) { return; }
+  renderStepper(st.state);
+  document.getElementById('log').innerHTML = (st.log || []).map((l) =>
+    `<div><span class="t">${esc(l.t.slice(11, 19))}</span>${esc(l.msg)}</div>`).join('');
+  const logEl = document.getElementById('log');
+  logEl.scrollTop = logEl.scrollHeight;
+
+  const idle = st.state === 'IDLE';
+  document.getElementById('btn-run').disabled = !st.can_run;
+  document.getElementById('cannot').textContent = idle && !st.can_run ? st.can_run_reason : '';
+  const est = st.estimate || {};
+  document.getElementById('estimate').textContent = est.n
+    ? `예상(직전 ${est.n}회 평균): ${Math.round(est.avg_duration_sec)}초` +
+      (est.avg_cost_usd != null ? ` · $${est.avg_cost_usd}` : '')
+    : '첫 실행 — 예상치 없음 (타임아웃 내 수 분 소요)';
+
+  document.getElementById('diff-card').style.display = st.state === 'REVIEW_DIFF' ? '' : 'none';
+  if (st.state === 'REVIEW_DIFF') renderDiff();
+
+  const fin = document.getElementById('final-card');
+  if (['PASSED', 'REJECTED', 'FAILED'].includes(st.state)) {
+    fin.style.display = '';
+    const badge = st.state === 'PASSED' ? '<span class="badge ok">게이트 통과</span>'
+      : st.state === 'REJECTED' ? '<span class="badge err">게이트 기각</span>'
+      : '<span class="badge err">실행 실패</span>';
+    document.getElementById('final-body').innerHTML = `${badge}
+      <p class="sub" style="margin-top:8px">${st.state === 'PASSED'
+        ? '성적표를 검토하고 [채택]할지 결정하세요 — 채택 전에는 아무것도 운영에 반영되지 않습니다.'
+        : st.state === 'REJECTED' ? '기각도 세대 이력에 남습니다 — 다음 세대의 history 입력이 됩니다.'
+        : esc((st.data || {}).error || '')}</p>`;
+    document.getElementById('final-actions').innerHTML = '';
+    const acts = document.getElementById('final-actions');
+    if (st.state === 'PASSED' && st.param_set_id) {
+      acts.innerHTML = `<a class="btn" href="/report?id=${encodeURIComponent(st.param_set_id)}">성적표 검토 →</a>`;
+    }
+    const b = document.createElement('button');
+    b.className = 'ghost';
+    b.textContent = st.state === 'REJECTED' ? '기각 확정 (다음 세대 준비)' : '정리 (IDLE 로)';
+    b.onclick = async () => { try { await post('/api/loop/dismiss'); await poll(); } catch (e) { showErr(e); } };
+    acts.appendChild(b);
+    document.getElementById('fail-card').style.display = st.state === 'FAILED' ? '' : 'none';
+    if (st.state === 'FAILED') renderFailRuns();
+  } else { fin.style.display = 'none'; document.getElementById('fail-card').style.display = 'none'; }
+}
+
+async function loadAgents() {
+  try {
+    const a = await api('/api/agents');
+    document.getElementById('agent').innerHTML = a.agents.map((x) =>
+      `<option value="${x.name}" ${x.name === a.default ? 'selected' : ''}>${esc(x.display)}</option>`).join('');
+  } catch (e) {}
+}
+document.getElementById('btn-run').onclick = async () => {
+  const ok = await confirmModal({ title: '진화 1회 실행', confirmText: '실행',
+    body: 'Evidence Pack 을 만들고 AI 에이전트를 헤드리스로 실행합니다.<br>' +
+          '자동은 제안·시험까지 — <b>운영 반영은 언제나 [채택] 버튼</b>입니다.' });
+  if (!ok) return;
+  try { await post('/api/loop/run', { agent: document.getElementById('agent').value }); await poll(); }
+  catch (e) { showErr(e); }
+};
+document.getElementById('btn-register').onclick = async () => {
+  try { await post('/api/loop/register'); await poll(); } catch (e) { showErr(e); }
+};
+document.getElementById('btn-dismiss').onclick = async () => {
+  const ok = await confirmModal({ title: '제안 폐기', danger: true, confirmText: '폐기',
+    body: '이 제안을 후보로 등록하지 않고 버립니다. 원문은 agent_runs 에 보존됩니다.' });
+  if (!ok) return;
+  try { await post('/api/loop/dismiss'); await poll(); } catch (e) { showErr(e); }
+};
+loadAgents(); poll();
+setInterval(poll, 1500);
+</script>
+</body>
+</html>

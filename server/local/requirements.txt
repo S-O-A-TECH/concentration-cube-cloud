@@ -1,0 +1,16 @@
+fastapi>=0.115
+pyjwt>=2.9
+numpy
+pandas
+pyarrow
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+alembic>=1.13
+psycopg[binary]>=3.2
+redis>=5.0
+rq>=1.16
+pydantic-settings>=2.4
+jinja2>=3.1
+python-multipart>=0.0.9
+httpx>=0.27
+pytest>=8
