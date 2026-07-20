@@ -138,6 +138,8 @@ services:
       QWEN_BASE_URL: ${QWEN_BASE_URL:?}
       # 제안자 역할 — 파라미터 개선 추론. 플래그십(max)을 쓰고 쿼터 풀도 코치와 분리된다.
       QWEN_MODEL: ${QWEN_EVOLVE_MODEL:-qwen3.7-max}
+      # 제안 JSON 자연어 필드의 출력 언어 (en/ko) — UI 언어와 맞춘다
+      QWEN_OUTPUT_LANG: ${QWEN_OUTPUT_LANG:-en}
       LEV_STATE_DIR: /data/state
     volumes:
       # state.sqlite·secret.key·workspaces 보존 — 없으면 재배포마다 진화 이력이 날아간다.

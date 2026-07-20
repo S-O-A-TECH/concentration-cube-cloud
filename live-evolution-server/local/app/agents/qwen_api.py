@@ -69,6 +69,20 @@ _SYSTEM_PROMPT = (
     "코드블록·설명·인사말을 붙이지 말고 순수 JSON 만 응답하라."
 )
 
+# 제안 JSON 의 자연어 필드(diagnosis·changes[].reason·rationale·risk) 출력 언어.
+# UI 가 영어라 기본 en — 병원 운영(한국어 PI)에서는 QWEN_OUTPUT_LANG=ko 로 되돌린다.
+_LANG_DIRECTIVE = {
+    "en": ("Write every natural-language field in your JSON (diagnosis, changes[].reason, "
+           "rationale, risk) in English, regardless of the language of the evidence or "
+           "this instruction."),
+    "ko": "JSON 의 자연어 필드(diagnosis, changes[].reason, rationale, risk)는 한국어로 작성하라.",
+}
+
+
+def _system_prompt() -> str:
+    lang = (os.environ.get("QWEN_OUTPUT_LANG") or "en").strip().lower()
+    return _SYSTEM_PROMPT + " " + _LANG_DIRECTIVE.get(lang, _LANG_DIRECTIVE["en"])
+
 # 인라인 증거 각 파일의 최대 길이 (토큰 폭주 방지 — 백분위·혼동행렬은 이 안에 충분히 담긴다)
 _EVIDENCE_LIMIT = {
     "current_params.json": 6000,
@@ -173,7 +187,7 @@ class QwenApiAdapter(AgentAdapter):
         before = core.eval_train_lite(df, current_params)["per_state"]
         cur_flat = flatten(current_params)
         prompt = self._build_prompt(workspace, tb)
-        messages = [{"role": "system", "content": _SYSTEM_PROMPT},
+        messages = [{"role": "system", "content": _system_prompt()},
                     {"role": "user", "content": prompt}]
 
         t0 = time.monotonic()
