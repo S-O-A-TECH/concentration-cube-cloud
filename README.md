@@ -159,6 +159,10 @@ Both suites pass on the contents of this repository:
 
 The two skipped tests are both in `tests/test_sim_sync.py`; they cross-check that the evolution server's simulation core has not drifted from the webcam prototype's copy, and skip automatically because that prototype is not part of this repository. Neither the tests nor the suites require a Qwen API key — the API layer is exercised through an injected HTTP seam. Coverage includes the validator's rejection paths — fabricated self-test numbers, hidden parameter changes, out-of-bounds values — exercised against a fake agent, so the firewall is tested without needing the network.
 
+## Roadmap: age-stratified interpretation
+
+Focus doesn't look the same at 8 as it does at 15 or 40 — the eye-tracking and pupil signatures of focus, blank-stare, and off-task vary enormously across people, and systematically with age. The companion app already collects each user's birth year. As the fleet grows, the interpretation becomes **age-stratified**: parameter sets per 5-year age band, each band with its own lineage, evolved against its own cohort's instructed ground truth and gated on its own holdout. That requires data at the tens-of-thousands-of-users scale — which is exactly the point. **Concentration Cube is a device that gets smarter the longer it exists.** Accumulated data compounds into accumulated interpretation quality; the heart of that compounding is the evolution server, and the engine driving it is Qwen on Qwen Cloud.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Bundled third-party assets (the MaruBuri font used
